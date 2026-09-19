@@ -2,6 +2,7 @@ import type { RefObject } from "react";
 import { ButtonLink } from "@/components/Button";
 import { StatusState } from "@/components/StatusState";
 import { anchors, routes } from "@/config/site";
+import { RoomWireframe } from "./RoomWireframe";
 import styles from "./HeroLayer.module.css";
 
 export type StageStatus = "loading" | "ready" | "error";
@@ -36,6 +37,8 @@ export function HeroLayer({ frameRef, loaderBarRef, status, error = "webgl" }: H
       {/* The photograph is composed into this box. It never moves, so the
           stage can measure it at any scroll position. */}
       <div ref={frameRef} className={styles.frame} data-status={status}>
+        {/* Stands in for the render until it arrives, and fades out under it. */}
+        {status !== "ready" && <RoomWireframe />}
         {status === "loading" && (
           <div className={styles.loader} role="status" aria-live="polite">
             <span className={styles.loaderLabel}>Preparing the demonstration room</span>
