@@ -19,8 +19,11 @@ npm run build       # production build (Turbopack)
 npm run start       # serve the production build
 ```
 
-Set `NEXT_PUBLIC_SITE_URL` (see `.env.example`) so canonical and Open Graph
-URLs point at the deployed origin.
+Set `NEXT_PUBLIC_SITE_URL` (see `.env.example`) so canonical links, Open Graph
+images, `robots.txt` and the sitemap point at the deployed origin. A bare
+hostname is accepted and assumed to be `https`. On Vercel it is optional — the
+project's production domain is used instead — and the production build warns
+when neither is available, rather than quietly publishing localhost URLs.
 
 ## Structure
 
