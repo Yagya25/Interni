@@ -18,7 +18,10 @@ function Pin({ anchor, children, item = true, tone }: { anchor: string; children
   return (
     <div className={styles.anchor} data-anchor={anchor} data-item={item ? "" : undefined} data-tone={tone}>
       <span className={styles.pin} aria-hidden="true" />
-      <span className={styles.tag}>{children}</span>
+      {/* `data-tag` marks the box the stage measures when spacing labels out. */}
+      <span className={styles.tag} data-tag>
+        {children}
+      </span>
     </div>
   );
 }
@@ -72,8 +75,8 @@ export function SceneLabels({ onHover }: { onHover: (id: Id | null) => void }) {
       {/* 04 Objects */}
       <div className={styles.layer} data-layer="objects">
         {scene.objects.map((object, i) => {
-          // Small pieces get a name only; leader lengths alternate so tags
-          // around a dense group (sofa, table, lamp) don't stack.
+          // Small pieces get a name only, and are the first to step aside when
+          // a group is crowded. The stage spaces the rest apart by measurement.
           const small = object.dimensions[0] * object.dimensions[2] < 0.12;
           return (
             <div
@@ -82,12 +85,11 @@ export function SceneLabels({ onHover }: { onHover: (id: Id | null) => void }) {
               data-anchor={`object:${object.id}`}
               data-item=""
               data-small={small || undefined}
-              style={{ "--lead": `${12 + (i % 3) * 20}px` } as CSSProperties}
               onPointerEnter={() => onHover(object.id)}
               onPointerLeave={() => onHover(null)}
             >
               <span className={styles.pin} aria-hidden="true" />
-              <span className={`${styles.tag} ${styles.tagInteractive}`}>
+              <span className={`${styles.tag} ${styles.tagInteractive}`} data-tag>
                 <span className={styles.tagIndex}>{String(i + 1).padStart(2, "0")}</span>
                 <span className={styles.tagName}>{object.label}</span>
                 {!small && (

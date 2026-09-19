@@ -99,7 +99,22 @@ interface Anchor {
   element: HTMLElement;
   key: string;
   layer: HTMLElement | null;
+  /** The label box, when this anchor carries one. Absent for bare markers. */
+  tag: HTMLElement | null;
+  /** Tags that may lose their place first when a group is crowded. */
+  minor: boolean;
+  /** Measured tag size, refreshed on resize rather than per frame. */
+  tagWidth: number;
+  tagHeight: number;
+  /** Screen box of the placed tag, reused each frame to avoid allocation. */
+  readonly box: { x0: number; x1: number; y0: number; y1: number };
 }
+
+/** Leader length from pin to tag: the resting length, and the most we stretch. */
+const LEAD_REST = 12;
+const LEAD_MAX = 132;
+/** Clear space kept between two tags once they have been pushed apart. */
+const LEAD_GAP = 4;
 
 const UP = new Vector3(0, 1, 0);
 const FALLBACK_MATERIAL: SceneMaterial = {
@@ -167,6 +182,9 @@ export class SceneStage {
   private readonly roomCenter = new Vector3();
 
   private anchors: Anchor[] = [];
+  private tagsMeasured = false;
+  /** Anchors placed this frame, in resolution order. Reused to avoid garbage. */
+  private readonly placed: Anchor[] = [];
   private frameElement: HTMLElement | null = null;
   private frameRect = { x: 0, y: 0, w: 1, h: 1 };
   private size = { w: 1, h: 1 };
@@ -370,8 +388,45 @@ export class SceneStage {
       element,
       key: element.dataset.anchor ?? "",
       layer: element.closest<HTMLElement>("[data-layer]"),
+      tag: element.querySelector<HTMLElement>("[data-tag]"),
+      minor: element.dataset.small !== undefined,
+      tagWidth: 0,
+      tagHeight: 0,
+      box: { x0: 0, x1: 0, y0: 0, y1: 0 },
     }));
+    // Substantial labels claim their place first; small ones fit around them.
+    // The sort is stable, so markup order decides everything else.
+    this.anchors.sort((a, b) => Number(a.minor) - Number(b.minor));
+    this.tagsMeasured = false;
+    // Tags are set in a webfont; their widths change when it arrives.
+    document.fonts?.ready.then(() => {
+      if (this.disposed) return;
+      this.tagsMeasured = false;
+      this.invalidate();
+    });
     this.invalidate();
+  }
+
+  /**
+   * Cache each tag's size. Tag text never changes, so this is read once and
+   * again after a resize, rather than per frame where it would force layout
+   * in the middle of a scroll. Hidden layers use `visibility`, not `display`,
+   * so their tags still have a measurable box.
+   *
+   * Early frames can run before the overlay has been laid out, when every box
+   * reads zero. That result is not cached: measuring is retried until the tags
+   * have real sizes, and again once the webfont they are set in has loaded,
+   * since that changes their width.
+   */
+  private measureTags() {
+    let laidOut = true;
+    for (const anchor of this.anchors) {
+      if (!anchor.tag) continue;
+      anchor.tagWidth = anchor.tag.offsetWidth;
+      anchor.tagHeight = anchor.tag.offsetHeight;
+      if (anchor.tagHeight === 0) laidOut = false;
+    }
+    this.tagsMeasured = laidOut;
   }
 
   setHover(objectId: Id | null) {
@@ -607,6 +662,8 @@ export class SceneStage {
     if (w !== this.size.w || h !== this.size.h) {
       this.size = { w, h };
       this.renderer.setSize(w, h, false);
+      // Label type is responsive, so the cached tag boxes are now stale.
+      this.tagsMeasured = false;
     }
     this.measureFrame();
     this.renderNow();
@@ -1016,9 +1073,21 @@ export class SceneStage {
     }
   }
 
+  /**
+   * Pin each label to its point in the scene, then lengthen leaders so that
+   * tags which would sit on top of one another stack instead.
+   *
+   * Tags are placed in a fixed order — substantial pieces before small ones,
+   * and otherwise as written in the markup — rather than in screen order, so
+   * that the arrangement is a pure function of the camera. Sorting by position
+   * would let two labels swap places mid-scroll and visibly jump.
+   */
   private projectAnchors() {
     const { w, h } = this.size;
     const p = this.tmp;
+    if (!this.tagsMeasured) this.measureTags();
+
+    this.placed.length = 0;
     for (const anchor of this.anchors) {
       const layer = anchor.layer;
       if (layer && (layer.style.visibility === "hidden" || layer.style.opacity === "0")) continue;
@@ -1028,9 +1097,63 @@ export class SceneStage {
       const x = ((p.x + 1) / 2) * w;
       const y = ((1 - p.y) / 2) * h;
       anchor.element.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-      const state = visible ? "" : "hidden";
+
+      let hidden = !visible;
+      if (visible && anchor.tag && anchor.tagHeight > 0) {
+        hidden = !this.placeTag(anchor, x, y);
+      }
+      const state = hidden ? "hidden" : "";
       if (anchor.element.style.visibility !== state) anchor.element.style.visibility = state;
     }
+  }
+
+  /**
+   * Find a leader length that clears every tag already placed this frame.
+   * Tags only ever move away from the scene along their leader, so a label
+   * never drifts from the thing it names. Returns false when even a
+   * fully stretched leader cannot clear the crowd.
+   */
+  private placeTag(anchor: Anchor, x: number, y: number): boolean {
+    const { tagWidth: tw, tagHeight: th, box } = anchor;
+    let lead = LEAD_REST;
+
+    // Raise until clear. Each pass may uncover an earlier neighbour, so keep
+    // sweeping until a full pass moves nothing.
+    for (let guard = 0; guard < 8; guard += 1) {
+      const bottom = y - lead - 4;
+      let pushed = false;
+      for (const other of this.placed) {
+        const o = other.box;
+        if (x - 0.5 >= o.x1 || x - 0.5 + tw <= o.x0) continue;
+        if (bottom <= o.y0 || bottom - th >= o.y1) continue;
+        // Overlapping: clear this neighbour's top edge.
+        lead += o.y1 - (bottom - th) + LEAD_GAP;
+        pushed = true;
+        break;
+      }
+      if (!pushed) break;
+      if (lead > LEAD_MAX) break;
+    }
+
+    // A minor label that cannot find room steps aside; a substantial one is
+    // kept at full stretch, since dropping it would understate the scene.
+    if (lead > LEAD_MAX) {
+      if (anchor.minor) return false;
+      lead = LEAD_MAX;
+    }
+
+    box.x0 = x - 0.5;
+    box.x1 = box.x0 + tw;
+    box.y1 = y - lead - 4;
+    box.y0 = box.y1 - th;
+    anchor.element.style.setProperty("--lead", `${Math.round(lead)}px`);
+    // A tag raised past a neighbour draws its leader across that neighbour.
+    // Ordering by leader length puts the longer leaders behind, where the
+    // tags' own backgrounds cover them, so the crossing never shows. Tags
+    // themselves no longer overlap, so nothing is hidden by this.
+    anchor.element.style.zIndex = String(LEAD_MAX - Math.round(lead));
+    this.placed.push(anchor);
+    return true;
   }
 
   private handleContextLost = (event: Event) => {
