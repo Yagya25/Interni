@@ -1,0 +1,26 @@
+.shell {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  height: var(--nav-height);
+  padding-inline: var(--gutter);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.main {
+  display: grid;
+  align-content: center;
+  padding: var(--space-8) var(--gutter);
+  outline: none;
+}

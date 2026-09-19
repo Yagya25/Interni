@@ -1,0 +1,9 @@
+# Normalise line endings: LF in the repository, native in the working copy.
+# Without this, a tree checked out on Windows appears wholly modified elsewhere.
+* text=auto eol=lf
+
+# Binary assets Git should never try to diff or convert.
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary

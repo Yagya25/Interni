@@ -1,0 +1,65 @@
+.display-xl,
+.display-l,
+.display-m {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-variation-settings: "opsz" 72;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+}
+
+.display-xl {
+  font-size: var(--text-display-xl);
+}
+
+.display-l {
+  font-size: var(--text-display-l);
+  line-height: 0.95;
+}
+
+.display-m {
+  font-size: var(--text-display-m);
+  letter-spacing: -0.025em;
+  line-height: 1;
+}
+
+.body-l {
+  font-size: var(--text-body-l);
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+}
+
+.body {
+  font-size: var(--text-body);
+  line-height: 1.55;
+}
+
+.small {
+  font-size: var(--text-small);
+  line-height: 1.5;
+}
+
+.label,
+.meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.meta {
+  letter-spacing: 0.01em;
+}
+
+.muted {
+  color: var(--ink-2);
+}
+
+.subtle {
+  color: var(--ink-3);
+}

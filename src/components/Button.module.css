@@ -1,0 +1,126 @@
+/* Buttons are drawn like architectural title blocks: square, hairline,
+   uppercase mono label. The arrow advances on hover; nothing bounces. */
+
+.button {
+  --button-fg: var(--paper);
+  --button-bg: var(--ink);
+  --button-border: var(--ink);
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-height: 2.75rem;
+  padding: 0 1.125rem;
+  border: 1px solid var(--button-border);
+  background: var(--button-bg);
+  color: var(--button-fg);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    color var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
+}
+
+/* A fill that wipes in from the left on hover */
+.button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--button-hover-bg, var(--signal));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.button:hover::before,
+.button:focus-visible::before {
+  transform: scaleX(1);
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.l {
+  min-height: 3.25rem;
+  padding: 0 1.375rem;
+  font-size: 0.8125rem;
+  gap: 1.125rem;
+}
+
+.solid {
+  --button-hover-bg: var(--signal);
+}
+
+.solid:hover,
+.solid:focus-visible {
+  --button-border: var(--signal);
+}
+
+.line {
+  --button-fg: var(--ink);
+  --button-bg: transparent;
+  --button-border: var(--rule-strong);
+  --button-hover-bg: var(--ink);
+}
+
+.line:hover,
+.line:focus-visible {
+  --button-fg: var(--paper);
+  --button-border: var(--ink);
+}
+
+.text {
+  --button-fg: currentColor;
+  --button-bg: transparent;
+  --button-border: transparent;
+  padding: 0;
+  min-height: 2.75rem;
+}
+
+.text::before {
+  display: none;
+}
+
+.text .label {
+  background: linear-gradient(currentColor, currentColor) left bottom / 0 1px no-repeat;
+  padding-bottom: 2px;
+  transition: background-size var(--duration-base) var(--ease-out);
+}
+
+.text:hover .label,
+.text:focus-visible .label {
+  background-size: 100% 1px;
+}
+
+.label {
+  position: relative;
+}
+
+.arrow {
+  width: 1rem;
+  height: 0.625rem;
+  flex: none;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.button:hover .arrow,
+.button:focus-visible .arrow {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button::before {
+    transition: none;
+  }
+}

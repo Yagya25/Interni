@@ -1,0 +1,120 @@
+.rail {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--gutter) - 0.5rem);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: stretch;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--duration-slow) var(--ease-out),
+    visibility 0s linear var(--duration-slow);
+}
+
+.rail[data-visible="true"] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+
+.track {
+  position: absolute;
+  top: 0.9rem;
+  bottom: 0.9rem;
+  right: 1.2rem;
+  width: 1px;
+  background: var(--stage-rule);
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  background: var(--stage-ink);
+  transform: scaleY(0);
+  transform-origin: top;
+}
+
+.list {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  min-height: 1.8rem;
+  padding-right: 2rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stage-ink-2);
+}
+
+/* A tick on the track */
+.item::after {
+  content: "";
+  position: absolute;
+  right: calc(1.2rem - 3px);
+  top: 50%;
+  width: 7px;
+  height: 1px;
+  background: var(--stage-ink);
+  opacity: 0.5;
+  transition:
+    width var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out);
+}
+
+.index {
+  opacity: 0.8;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.label {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    max-width var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out);
+}
+
+.item[data-state="active"] {
+  color: var(--stage-ink);
+}
+
+.item[data-state="active"] .index {
+  opacity: 1;
+  color: var(--signal);
+}
+
+.item[data-state="active"] .label,
+.item:hover .label,
+.item:focus-visible .label {
+  max-width: 10rem;
+  opacity: 1;
+}
+
+.item[data-state="active"]::after {
+  width: 13px;
+  right: calc(1.2rem - 6px);
+  opacity: 1;
+  background: var(--signal);
+}
+
+.item:hover .index,
+.item:focus-visible .index {
+  opacity: 1;
+}
+
+@media (max-width: 63.99rem) {
+  .rail {
+    display: none;
+  }
+}

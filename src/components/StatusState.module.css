@@ -1,0 +1,83 @@
+.root {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 34rem;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* A short hairline. Loading sweeps it; other states hold it still. */
+.indicator {
+  position: relative;
+  width: 2rem;
+  height: 1px;
+  background: var(--rule-strong);
+  overflow: hidden;
+}
+
+.indicator::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  transform-origin: left;
+}
+
+[data-status="loading"] .indicator::after {
+  animation: sweep 1.4s var(--ease-in-out) infinite;
+}
+
+[data-status="error"] .indicator::after {
+  background: var(--signal);
+}
+
+[data-status="empty"] .indicator::after {
+  transform: scaleX(0);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 48;
+  font-weight: 300;
+  font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.description {
+  color: var(--ink-2);
+  max-width: 30rem;
+}
+
+.action {
+  margin-top: var(--space-3);
+}
+
+.compact .title {
+  font-size: 1.25rem;
+}
+
+.compact {
+  gap: var(--space-2);
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

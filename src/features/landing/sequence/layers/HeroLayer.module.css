@@ -1,0 +1,241 @@
+/* Editorial cover: the photograph sits right, the headline anchors the
+   bottom-left and runs over the print's edge. */
+
+.hero {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: auto auto minmax(0, 1fr);
+  column-gap: var(--gutter);
+  padding: calc(var(--nav-height) + 1.5rem) var(--gutter) clamp(1.5rem, 5vh, 3.5rem);
+}
+
+.frame {
+  position: relative;
+  grid-column: 6 / 13;
+  grid-row: 1 / 4;
+  margin-bottom: 2.25rem;
+  background: var(--stone-1);
+  outline: 1px solid var(--rule);
+  outline-offset: -1px;
+}
+
+.frame[data-status="ready"] {
+  background: transparent;
+  outline-color: transparent;
+}
+
+.caption {
+  position: absolute;
+  top: calc(100% + 0.75rem);
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+
+.caption span:first-child {
+  flex: none;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.title {
+  grid-column: 1 / 11;
+  grid-row: 3;
+  align-self: end;
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-variation-settings: "opsz" 72;
+  font-size: clamp(3.4rem, 1rem + 7.9vw, 10.5rem);
+  line-height: 0.86;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+
+.line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+  margin-bottom: -0.06em;
+}
+
+.line > span {
+  display: block;
+  animation: rise 1.2s var(--ease-out) backwards;
+}
+
+.line:nth-child(2) > span {
+  animation-delay: 0.12s;
+}
+
+.lede {
+  grid-column: 1 / 5;
+  grid-row: 1;
+  max-width: 24rem;
+  padding-top: clamp(0.5rem, 3vh, 2.5rem);
+  font-size: var(--text-body-l);
+  line-height: 1.42;
+  color: var(--ink-2);
+  text-wrap: pretty;
+  animation: fade 1s 0.35s var(--ease-out) backwards;
+}
+
+.actions {
+  grid-column: 1 / 5;
+  grid-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem 1.75rem;
+  margin-top: 1.75rem;
+  pointer-events: auto;
+  animation: fade 1s 0.45s var(--ease-out) backwards;
+}
+
+.cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.cue svg {
+  width: 0.625rem;
+  height: 1rem;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.cue:hover svg,
+.cue:focus-visible svg {
+  transform: translateY(3px);
+}
+
+.cue span {
+  background: linear-gradient(currentColor, currentColor) left bottom / 0 1px no-repeat;
+  transition: background-size var(--duration-base) var(--ease-out);
+}
+
+.cue:hover span,
+.cue:focus-visible span {
+  background-size: 100% 1px;
+}
+
+/* Loading and error states live inside the frame */
+
+.loader {
+  position: absolute;
+  left: 1.25rem;
+  bottom: 1.25rem;
+  display: grid;
+  gap: 0.625rem;
+  width: min(16rem, 70%);
+}
+
+.loaderLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.loaderTrack {
+  display: block;
+  height: 1px;
+  background: var(--rule-strong);
+  overflow: hidden;
+}
+
+.loaderBar {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  transform: scaleX(0.04);
+  transform-origin: left;
+  transition: transform 400ms var(--ease-out);
+}
+
+.error {
+  position: absolute;
+  left: 1.25rem;
+  bottom: 1.25rem;
+  right: 1.25rem;
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(105%);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Tablet and phone: headline, lede, the print, then actions. */
+@media (max-width: 63.99rem) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    row-gap: 1.1rem;
+    padding-top: calc(var(--nav-height) + 0.75rem);
+    padding-bottom: 1.25rem;
+  }
+
+  .title {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .heading {
+    font-size: clamp(3.1rem, 1.2rem + 9vw, 6.5rem);
+  }
+
+  .line:nth-child(2) > span {
+    padding-left: 0;
+  }
+
+  .lede {
+    grid-column: 1;
+    grid-row: 2;
+    max-width: 32rem;
+    padding-top: 0;
+    font-size: 1.0625rem;
+  }
+
+  .frame {
+    grid-column: 1;
+    grid-row: 3;
+    margin-bottom: 1.6rem;
+    min-height: 12rem;
+  }
+
+  .actions {
+    grid-column: 1;
+    grid-row: 4;
+    margin-top: 0;
+    justify-content: space-between;
+  }
+}

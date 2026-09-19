@@ -1,0 +1,63 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: clamp(2.5rem, 6vw, 7rem);
+  align-items: end;
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.75rem;
+}
+
+.steps {
+  display: grid;
+  border-top: 1px solid var(--ink);
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 2.5rem 7rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: baseline;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.stepIndex {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--signal);
+}
+
+.stepName {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stepText {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+@media (max-width: 63.99rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .step {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .stepText {
+    grid-column: 2;
+  }
+}
