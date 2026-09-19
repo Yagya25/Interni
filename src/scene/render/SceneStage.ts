@@ -115,6 +115,8 @@ const LEAD_REST = 12;
 const LEAD_MAX = 132;
 /** Clear space kept between two tags once they have been pushed apart. */
 const LEAD_GAP = 4;
+/** Space a tag keeps from the edge of the stage before it flips sides. */
+const EDGE_MARGIN = 12;
 
 const UP = new Vector3(0, 1, 0);
 const FALLBACK_MATERIAL: SceneMaterial = {
@@ -1108,23 +1110,18 @@ export class SceneStage {
   }
 
   /**
-   * Find a leader length that clears every tag already placed this frame.
-   * Tags only ever move away from the scene along their leader, so a label
-   * never drifts from the thing it names. Returns false when even a
-   * fully stretched leader cannot clear the crowd.
+   * How long a leader must be for a tag at `edge` to clear everything already
+   * placed this frame. Each raise can uncover a further neighbour, so the
+   * sweep repeats until a pass moves nothing, and gives up past the maximum.
    */
-  private placeTag(anchor: Anchor, x: number, y: number): boolean {
-    const { tagWidth: tw, tagHeight: th, box } = anchor;
+  private leadToClear(edge: number, tw: number, th: number, y: number): number {
     let lead = LEAD_REST;
-
-    // Raise until clear. Each pass may uncover an earlier neighbour, so keep
-    // sweeping until a full pass moves nothing.
     for (let guard = 0; guard < 8; guard += 1) {
       const bottom = y - lead - 4;
       let pushed = false;
       for (const other of this.placed) {
         const o = other.box;
-        if (x - 0.5 >= o.x1 || x - 0.5 + tw <= o.x0) continue;
+        if (edge >= o.x1 || edge + tw <= o.x0) continue;
         if (bottom <= o.y0 || bottom - th >= o.y1) continue;
         // Overlapping: clear this neighbour's top edge.
         lead += o.y1 - (bottom - th) + LEAD_GAP;
@@ -1134,16 +1131,51 @@ export class SceneStage {
       if (!pushed) break;
       if (lead > LEAD_MAX) break;
     }
+    return lead;
+  }
+
+  /**
+   * Place one tag: pick the side of the pin it hangs from and how far up its
+   * leader it sits. Tags only ever move along their leader or across their
+   * own pin, so a label never drifts from the thing it names. Returns false
+   * when a minor label cannot be fitted and should step aside.
+   */
+  private placeTag(anchor: Anchor, x: number, y: number): boolean {
+    const { tagWidth: tw, tagHeight: th, box } = anchor;
+
+    // A tag can hang from either side of its pin. Both sides are costed and
+    // the cheaper one wins, so a label only moves as far as it has to — and
+    // a tag crowded on one side can step over the pin instead of climbing.
+    const right = x - 0.5;
+    const left = x + 0.5 - tw;
+    const fits = (edge: number) => edge >= EDGE_MARGIN && edge + tw <= this.size.w - EDGE_MARGIN;
+    const candidates: { edge: number; flip: boolean }[] = [];
+    if (fits(right)) candidates.push({ edge: right, flip: false });
+    if (fits(left)) candidates.push({ edge: left, flip: true });
+    // Neither side fits on screen: keep the natural one and let it clip
+    // rather than drop a label for being near an edge.
+    if (candidates.length === 0) candidates.push({ edge: right, flip: false });
+
+    let best = { edge: right, flip: false, lead: Infinity };
+    for (const candidate of candidates) {
+      const lead = this.leadToClear(candidate.edge, tw, th, y);
+      if (lead < best.lead) best = { ...candidate, lead };
+      if (best.lead <= LEAD_REST) break;
+    }
 
     // A minor label that cannot find room steps aside; a substantial one is
     // kept at full stretch, since dropping it would understate the scene.
+    let lead = best.lead;
     if (lead > LEAD_MAX) {
       if (anchor.minor) return false;
       lead = LEAD_MAX;
     }
 
-    box.x0 = x - 0.5;
-    box.x1 = box.x0 + tw;
+    if (best.flip) anchor.element.setAttribute("data-flip", "");
+    else anchor.element.removeAttribute("data-flip");
+
+    box.x0 = best.edge;
+    box.x1 = best.edge + tw;
     box.y1 = y - lead - 4;
     box.y0 = box.y1 - th;
     anchor.element.style.setProperty("--lead", `${Math.round(lead)}px`);

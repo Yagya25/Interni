@@ -52,12 +52,6 @@
   stroke-width: 1;
 }
 
-/* The frame keeps its box while loading, so the shell can simply fade as the
-   render takes over underneath it. */
-.frame[data-status="error"] .wireframe {
-  opacity: 0.4;
-}
-
 @keyframes wire-draw {
   from {
     opacity: 0;

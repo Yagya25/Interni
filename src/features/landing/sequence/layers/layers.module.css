@@ -140,6 +140,20 @@
   background: var(--ink);
 }
 
+/* Tags close to the right edge hang from the other side of the pin, so the
+   label stays on screen. The stage sets `data-flip` when it places them. */
+.anchor[data-flip] .tag {
+  left: auto;
+  right: -0.5px;
+  border-left: 0;
+  border-right: 1px solid var(--ink);
+}
+
+.anchor[data-flip] .tag::before {
+  left: auto;
+  right: -1px;
+}
+
 .tagIndex {
   color: var(--ink-3);
 }
