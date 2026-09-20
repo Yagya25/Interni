@@ -1100,9 +1100,16 @@ export class SceneStage {
       const y = ((1 - p.y) / 2) * h;
       anchor.element.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
 
+      // The frustum test above keeps a little slack past each edge so that a
+      // pin crossing the boundary does not pop. A tag, though, hangs off its
+      // pin: one of its vertical borders sits on the pin's own x, so a pin
+      // outside the frame can only put its label across the edge, however it
+      // is placed. Narrow viewports see less of the room sideways, which puts
+      // more pins out of shot. Label nothing the viewer cannot see.
+      const pinInFrame = x >= EDGE_MARGIN && x <= w - EDGE_MARGIN && y >= 0 && y <= h;
       let hidden = !visible;
       if (visible && anchor.tag && anchor.tagHeight > 0) {
-        hidden = !this.placeTag(anchor, x, y);
+        hidden = !pinInFrame || !this.placeTag(anchor, x, y);
       }
       const state = hidden ? "hidden" : "";
       if (anchor.element.style.visibility !== state) anchor.element.style.visibility = state;
@@ -1152,9 +1159,15 @@ export class SceneStage {
     const candidates: { edge: number; flip: boolean }[] = [];
     if (fits(right)) candidates.push({ edge: right, flip: false });
     if (fits(left)) candidates.push({ edge: left, flip: true });
-    // Neither side fits on screen: keep the natural one and let it clip
-    // rather than drop a label for being near an edge.
-    if (candidates.length === 0) candidates.push({ edge: right, flip: false });
+    // Neither side fits: the tag is wider than the space beside its pin. Take
+    // whichever side crosses the edge by less — clipping a little beats
+    // dropping a label whose subject is plainly in shot.
+    if (candidates.length === 0) {
+      const spill = (edge: number) =>
+        Math.max(0, EDGE_MARGIN - edge) + Math.max(0, edge + tw - (this.size.w - EDGE_MARGIN));
+      const useLeft = spill(left) < spill(right);
+      candidates.push({ edge: useLeft ? left : right, flip: useLeft });
+    }
 
     let best = { edge: right, flip: false, lead: Infinity };
     for (const candidate of candidates) {
