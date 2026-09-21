@@ -329,13 +329,27 @@ function toTexture(canvas: HTMLCanvasElement, maxAnisotropy: number) {
 
 export class TextureLibrary {
   private readonly cache = new Map<SurfacePattern, Texture>();
+  /** Tilings already made, by pattern and repeat. */
+  private readonly tilings = new Map<string, Texture>();
   private readonly owned: Texture[] = [];
 
   constructor(private readonly maxAnisotropy: number) {}
 
-  /** A texture tiled at `scale` metres per repeat (geometry UVs are in metres). */
+  /**
+   * A texture tiled at `scale` metres per repeat (geometry UVs are in metres).
+   *
+   * Tilings are shared: a tiling is only a repeat setting over a drawing
+   * that is already cached, and nothing mutates one after it is made. That
+   * matters once materials can be edited — a colour dragged through a
+   * hundred values asks for the same tiling a hundred times, and must not
+   * leave a hundred textures behind.
+   */
   get(pattern: SurfacePattern, scale = 1): Texture | null {
     if (pattern === "none") return null;
+    const key = `${pattern}@${scale}`;
+    const existing = this.tilings.get(key);
+    if (existing) return existing;
+
     let base = this.cache.get(pattern);
     if (!base) {
       const spec = patterns[pattern];
@@ -350,6 +364,7 @@ export class TextureLibrary {
     }
     const tiled = base.clone();
     tiled.repeat.set(1 / scale, 1 / scale);
+    this.tilings.set(key, tiled);
     this.owned.push(tiled);
     return tiled;
   }
@@ -372,6 +387,7 @@ export class TextureLibrary {
     this.owned.forEach((t) => t.dispose());
     this.owned.length = 0;
     this.cache.clear();
+    this.tilings.clear();
   }
 }
 

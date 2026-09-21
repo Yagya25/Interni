@@ -46,3 +46,10 @@ export function pick(...ids: DemoMaterialId[]): Material[] {
 export function demoMaterial(id: DemoMaterialId): Material {
   return { id, ...library[id] } as Material;
 }
+
+/**
+ * Everything in the library, for a palette to choose from. A reconstructed
+ * room will bring its own estimated materials; until then this stands in
+ * for the finishes a person can reach for.
+ */
+export const demoLibrary: Material[] = (Object.keys(library) as DemoMaterialId[]).map(demoMaterial);

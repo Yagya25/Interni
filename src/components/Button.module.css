@@ -124,3 +124,10 @@
     transition: none;
   }
 }
+
+/* Present but not available: shown so the next step is visible, never
+   styled as though it would work. */
+.button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

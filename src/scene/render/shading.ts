@@ -1,19 +1,30 @@
 import {
   Color,
   LinearSRGBColorSpace,
+  Matrix4,
   MeshDepthMaterial,
+  Vector2,
   Vector3,
   type IUniform,
   type Material,
+  type Texture,
   type WebGLProgramParametersWithUniforms,
 } from "three";
 
 /**
  * Understanding layers, implemented once as an extension to three's standard
- * material. Every visual mode the story needs (depth map, clay model,
- * material reveal, redesign sweep, section caps) is a uniform, never a
- * define, so switching modes never triggers a shader recompile mid-scroll.
+ * material. Every visual mode the story needs (photograph, depth map, clay
+ * model, material reveal, redesign sweep, section caps) is a uniform, never
+ * a define, so switching modes never triggers a shader recompile mid-scroll.
  */
+
+/**
+ * Per-vertex position in the capture camera's view space, measured with
+ * everything at rest. It is baked into the geometry, so it travels with a
+ * mesh wherever the story moves it: a wall pulled out of the room still
+ * knows which of its parts the photograph saw.
+ */
+export const PHOTO_ATTRIBUTE = "aPhotoView";
 
 /** A colour whose value is already in output (display) space. */
 export const displayColor = (hex: string) => new Color().setStyle(hex, LinearSRGBColorSpace);
@@ -38,6 +49,15 @@ export function createGlobalUniforms() {
     uDimArch: { value: 0 },
     uDimObj: { value: 0 },
     uSection: { value: displayColor("#2a2825") },
+    // What the photograph saw: the depth it recorded from its camera, read
+    // back through the same projection. `uPhotoTexel` is one depth texel.
+    uPhoto: { value: 0 },
+    uPhotoDepth: { value: null as Texture | null },
+    uPhotoTexel: { value: new Vector2(1, 1) },
+    uPhotoProjection: { value: new Matrix4() },
+    uPhotoNear: { value: 0.05 },
+    uPhotoFar: { value: 80 },
+    uPhotoUnseen: { value: displayColor("#dad4c9") },
   } satisfies Record<string, IUniform>;
 }
 
@@ -70,6 +90,11 @@ export type InstanceUniforms = ReturnType<typeof createInstanceUniforms>;
 
 const VERTEX_PARS = /* glsl */ `
 varying vec3 vDWorld;
+`;
+
+const VERTEX_PHOTO_PARS = /* glsl */ `
+attribute vec3 ${PHOTO_ATTRIBUTE};
+varying vec3 vPhotoView;
 `;
 
 const VERTEX_WORLD = /* glsl */ `
@@ -121,6 +146,23 @@ uniform vec3 uRevealSeed;
 uniform float uRevealRadius;
 uniform float uRole;
 uniform float uSectionCaps;
+varying vec3 vPhotoView;
+uniform float uPhoto;
+uniform sampler2D uPhotoDepth;
+uniform vec2 uPhotoTexel;
+uniform mat4 uPhotoProjection;
+uniform float uPhotoNear;
+uniform float uPhotoFar;
+uniform vec3 uPhotoUnseen;
+
+// 1 where the photograph recorded this point, 0 where something stood in
+// front of it, with a tolerance that grows with distance as depth
+// precision falls.
+float dPhotoSeen( vec2 uv, float distanceFromCamera ) {
+  float recorded = ( uPhotoNear * uPhotoFar ) / ( ( uPhotoFar - uPhotoNear ) * texture2D( uPhotoDepth, uv ).r - uPhotoFar );
+  float tolerance = 0.03 + 0.018 * distanceFromCamera;
+  return 1.0 - smoothstep( tolerance, tolerance * 1.8, distanceFromCamera + recorded );
+}
 
 float dContour( float d, float spacing ) {
   float f = d / spacing;
@@ -166,6 +208,36 @@ if ( uRole < 0.5 && uAO > 0.001 ) {
 
 const STANDARD_OUTPUT = /* glsl */ `
 #include <dithering_fragment>
+// The room as the photograph knows it. Each fragment finds where it sat in
+// the picture and whether the picture saw it there; what it saw is shown
+// as the room renders it, sharp from any viewpoint, and what it never saw
+// (behind the sofa, outside the frame) is left blank.
+if ( uPhoto > 0.001 ) {
+  vec4 pClip = uPhotoProjection * vec4( vPhotoView, 1.0 );
+  vec2 pUv = pClip.xy / max( pClip.w, 1e-5 ) * 0.5 + 0.5;
+  // A mesh built after the photograph has no coordinates (w = 0): unseen.
+  float pInside = step( 1e-5, pClip.w ) * step( 0.0, pUv.x ) * step( pUv.x, 1.0 ) * step( 0.0, pUv.y ) * step( pUv.y, 1.0 );
+  vec2 pUvIn = clamp( pUv, vec2( 0.0 ), vec2( 1.0 ) );
+  float pDistance = -vPhotoView.z;
+  // A 3×3 tent of taps, so the edge of the unseen is smooth rather than
+  // stepped at the depth texture's resolution when the camera moves in.
+  float pSeen = 0.0;
+  for ( int i = -1; i <= 1; i ++ ) {
+    for ( int j = -1; j <= 1; j ++ ) {
+      float weight = ( 2.0 - abs( float( i ) ) ) * ( 2.0 - abs( float( j ) ) );
+      pSeen += weight * dPhotoSeen( pUvIn + vec2( float( i ), float( j ) ) * uPhotoTexel * 0.75, pDistance );
+    }
+  }
+  pSeen *= pInside / 16.0;
+  // What was never seen is hatched, the way a drawing marks what is not
+  // known, and the edge where it meets what was seen is a hairline.
+  float pHatch = dContour( dot( vDWorld, vec3( 1.0, 0.8, 1.0 ) ), 0.09 );
+  vec3 pUnseen = mix( uPhotoUnseen, uDepthLine, pHatch * 0.2 );
+  float pTear = clamp( fwidth( pSeen ) * 1.2, 0.0, 1.0 );
+  vec3 pShown = mix( mix( pUnseen, gl_FragColor.rgb, pSeen ), uDepthLine, pTear * 0.5 );
+  gl_FragColor.rgb = mix( gl_FragColor.rgb, pShown, uPhoto );
+}
+
 // Attention: fade what is not the subject towards paper.
 gl_FragColor.rgb = mix( gl_FragColor.rgb, uPaper, uRole < 0.5 ? uDimArch : uDimObj );
 
@@ -196,17 +268,17 @@ if ( uSectionCaps > 0.5 && !gl_FrontFacing ) gl_FragColor.rgb = uSection;
 
 type AnyUniforms = Record<string, IUniform>;
 
-function injectVertex(shader: WebGLProgramParametersWithUniforms) {
+function injectVertex(shader: WebGLProgramParametersWithUniforms, photo = false) {
   shader.vertexShader = shader.vertexShader
-    .replace("#include <common>", `#include <common>\n${VERTEX_PARS}`)
-    .replace("#include <project_vertex>", VERTEX_WORLD);
+    .replace("#include <common>", `#include <common>\n${VERTEX_PARS}${photo ? VERTEX_PHOTO_PARS : ""}`)
+    .replace("#include <project_vertex>", photo ? `${VERTEX_WORLD}vPhotoView = ${PHOTO_ATTRIBUTE};\n` : VERTEX_WORLD);
 }
 
 /** Extend a MeshStandardMaterial / MeshPhysicalMaterial. */
 export function extendStandardMaterial(material: Material, uniforms: AnyUniforms) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
-    injectVertex(shader);
+    injectVertex(shader, true);
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", `#include <common>\n${STANDARD_PARS}`)
       .replace(

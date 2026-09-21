@@ -70,8 +70,9 @@
     opacity var(--duration-base) var(--ease-out);
 }
 
+/* Ticks only, until a chapter is current or reached for. */
 .index {
-  opacity: 0.8;
+  opacity: 0;
   transition: opacity var(--duration-base) var(--ease-out);
 }
 

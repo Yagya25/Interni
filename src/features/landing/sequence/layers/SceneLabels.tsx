@@ -3,7 +3,7 @@ import { demo } from "@/demo";
 import { findOperation } from "@/scene/model/operations";
 import { findById } from "@/scene/model/queries";
 import { formatMetres } from "@/scene/model/summary";
-import type { Id, RelationPredicate } from "@/scene/model/types";
+import type { Id, RelationPredicate, SceneObject } from "@/scene/model/types";
 import styles from "./layers.module.css";
 
 /**
@@ -14,14 +14,21 @@ import styles from "./layers.module.css";
 
 const { scene, operations, materialCallouts, summary } = demo;
 
+/**
+ * The outer element belongs to the stage, which writes its position and
+ * visibility every frame it moves. The timeline's entrance (`data-item`)
+ * animates the inner one, so the two never write the same style.
+ */
 function Pin({ anchor, children, item = true, tone }: { anchor: string; children: ReactNode; item?: boolean; tone?: "signal" }) {
   return (
-    <div className={styles.anchor} data-anchor={anchor} data-item={item ? "" : undefined} data-tone={tone}>
-      <span className={styles.pin} aria-hidden="true" />
-      {/* `data-tag` marks the box the stage measures when spacing labels out. */}
-      <span className={styles.tag} data-tag>
-        {children}
-      </span>
+    <div className={styles.anchor} data-anchor={anchor} data-tone={tone}>
+      <div className={styles.anchorBody} data-item={item ? "" : undefined}>
+        <span className={styles.pin} aria-hidden="true" />
+        {/* `data-tag` marks the box the stage measures when spacing labels out. */}
+        <span className={styles.tag} data-tag>
+          {children}
+        </span>
+      </div>
     </div>
   );
 }
@@ -42,6 +49,14 @@ const spanning = new Set<RelationPredicate>(["faces", "beside", "in-front-of", "
 
 const metres = (value: number) => value.toFixed(2);
 
+/** Bounding volume, in cubic metres, above which a piece is furniture rather than an accessory. */
+const PRINCIPAL_VOLUME = 0.2;
+
+/** A piece in its own right: standing free, and large enough to furnish the room. */
+const isPrincipal = (object: SceneObject) =>
+  object.support.kind !== "object" &&
+  object.dimensions[0] * object.dimensions[1] * object.dimensions[2] >= PRINCIPAL_VOLUME;
+
 export function SceneLabels({ onHover }: { onHover: (id: Id | null) => void }) {
   const move = findOperation(operations, "move");
   const replace = findOperation(operations, "replace");
@@ -54,7 +69,7 @@ export function SceneLabels({ onHover }: { onHover: (id: Id | null) => void }) {
 
   return (
     <div className={styles.labels} aria-hidden="true">
-      {/* 03 Structure */}
+      {/* Structure */}
       <div className={styles.layer} data-layer="structure">
         {scene.surfaces.map((surface) => (
           <Pin key={surface.id} anchor={`surface:${surface.id}`}>
@@ -72,38 +87,28 @@ export function SceneLabels({ onHover }: { onHover: (id: Id | null) => void }) {
         ))}
       </div>
 
-      {/* 04 Objects */}
+      {/* Objects: every piece is bracketed, but only the principal ones are
+          named, briefly, so the room is not buried in tags. */}
       <div className={styles.layer} data-layer="objects">
-        {scene.objects.map((object, i) => {
-          // Small pieces get a name only, and are the first to step aside when
-          // a group is crowded. The stage spaces the rest apart by measurement.
-          const small = object.dimensions[0] * object.dimensions[2] < 0.12;
-          return (
-            <div
-              key={object.id}
-              className={styles.anchor}
-              data-anchor={`object:${object.id}`}
-              data-item=""
-              data-small={small || undefined}
-              onPointerEnter={() => onHover(object.id)}
-              onPointerLeave={() => onHover(null)}
-            >
+        {scene.objects.filter(isPrincipal).map((object) => (
+          <div
+            key={object.id}
+            className={styles.anchor}
+            data-anchor={`object:${object.id}`}
+            onPointerEnter={() => onHover(object.id)}
+            onPointerLeave={() => onHover(null)}
+          >
+            <div className={styles.anchorBody} data-item="">
               <span className={styles.pin} aria-hidden="true" />
               <span className={`${styles.tag} ${styles.tagInteractive}`} data-tag>
-                <span className={styles.tagIndex}>{String(i + 1).padStart(2, "0")}</span>
                 <span className={styles.tagName}>{object.label}</span>
-                {!small && (
-                  <span className={styles.tagMeta}>
-                    {metres(object.dimensions[0])} × {metres(object.dimensions[2])}
-                  </span>
-                )}
               </span>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
-      {/* 05 Materials */}
+      {/* Materials */}
       <div className={styles.layer} data-layer="materials">
         {materialCallouts.map((callout) => {
           const sample = scene.materials.find((m) => m.class === callout.class);
@@ -120,7 +125,7 @@ export function SceneLabels({ onHover }: { onHover: (id: Id | null) => void }) {
         })}
       </div>
 
-      {/* 06 Light */}
+      {/* Light */}
       <div className={styles.layer} data-layer="light">
         {scene.lights
           .filter((light) => light.kind !== "ambient")
@@ -133,7 +138,7 @@ export function SceneLabels({ onHover }: { onHover: (id: Id | null) => void }) {
           ))}
       </div>
 
-      {/* 07 Edit readouts */}
+      {/* Edit readouts */}
       {move && moved && (
         <div className={styles.layer} data-layer="edit-move">
           <Pin anchor={`object:${move.objectId}`} item={false} tone="signal">
@@ -168,11 +173,11 @@ export function SceneLabels({ onHover }: { onHover: (id: Id | null) => void }) {
       <div className={styles.layer} data-layer="edit-light">
         <Pin anchor="light:daylight" item={false} tone="signal">
           <span className={styles.tagName}>Light</span>
-          <span className={styles.tagMeta}>Evening → afternoon</span>
+          <span className={styles.tagMeta}>Afternoon → late afternoon</span>
         </Pin>
       </div>
 
-      {/* 09 Understanding: relationships and dimensions */}
+      {/* Understanding: relationships and dimensions */}
       <div className={styles.layer} data-layer="relations">
         {/* Every relationship is drawn; only those that span the room are
             named, so stacked ones (on, under, above) don't pile up. */}

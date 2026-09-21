@@ -117,3 +117,28 @@ export function dimensionString(
   lines.frustumCulled = false;
   return lines;
 }
+
+/**
+ * The ring an object is turned by: a unit circle on the XZ plane with a
+ * tick at each quarter, so the angle can be read while it moves. Drawn at
+ * radius 1 and scaled to the piece it belongs to.
+ */
+export function rotationRing(material: LineBasicMaterial, segments = 72) {
+  const points: number[] = [];
+  for (let i = 0; i < segments; i += 1) {
+    const a = (i / segments) * Math.PI * 2;
+    const b = ((i + 1) / segments) * Math.PI * 2;
+    points.push(Math.cos(a), 0, Math.sin(a), Math.cos(b), 0, Math.sin(b));
+  }
+  for (let q = 0; q < 4; q += 1) {
+    const a = (q / 4) * Math.PI * 2;
+    const [cx, cz] = [Math.cos(a), Math.sin(a)];
+    points.push(cx, 0, cz, cx * 1.08, 0, cz * 1.08);
+  }
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new BufferAttribute(new Float32Array(points), 3));
+  const lines = new LineSegments(geometry, material);
+  lines.renderOrder = 11;
+  lines.frustumCulled = false;
+  return lines;
+}

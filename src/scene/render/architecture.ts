@@ -60,6 +60,12 @@ export interface ArchitectureBuild {
   backdrops: Mesh[];
   /** Section caps on top of the walls, seen in the cutaway. */
   caps: Mesh[];
+  /**
+   * The material instance each surface is painted with, one per surface, so
+   * an editor can repaint a single wall without touching the others that
+   * share its material.
+   */
+  surfaceMaterials: Map<Id, MeshStandardMaterial>;
 }
 
 interface BuildOptions {
@@ -84,10 +90,12 @@ export function buildArchitecture(scene: Scene, options: BuildOptions): Architec
   const cz = (bounds.min[2] + bounds.max[2]) / 2;
   const height = scene.room.height;
 
-  const materialFor = (id: Id, sectionCaps = false, underLines = false) => {
+  const surfaceMaterials = new Map<Id, MeshStandardMaterial>();
+  const materialFor = (id: Id, sectionCaps = false, underLines = false, surfaceId?: Id) => {
     const source = findById(scene.materials, id);
     if (!source) throw new Error(`Missing material ${id}`);
     const m = materials.create(source, instance, { sectionCaps });
+    if (surfaceId) surfaceMaterials.set(surfaceId, m);
     // Walls sit a hair behind their own edge linework.
     if (underLines) {
       m.polygonOffset = true;
@@ -116,7 +124,7 @@ export function buildArchitecture(scene: Scene, options: BuildOptions): Architec
   const floorSurface = scene.surfaces.find((s) => s.kind === "floor");
   if (floorSurface) {
     const floorGeo = new PlaneGeometry(width, depth).rotateX(-Math.PI / 2).translate(cx, 0, cz);
-    const floor = new Mesh(metricUVs(floorGeo), materialFor(floorSurface.materialId));
+    const floor = new Mesh(metricUVs(floorGeo), materialFor(floorSurface.materialId, false, false, floorSurface.id));
     floor.receiveShadow = true;
     floor.name = "floor";
     root.add(floor);
@@ -131,7 +139,7 @@ export function buildArchitecture(scene: Scene, options: BuildOptions): Architec
     const ceilingGeo = new PlaneGeometry(width + 0.3, depth + 0.3)
       .rotateX(Math.PI / 2)
       .translate(cx, height, cz);
-    const ceilingMesh = new Mesh(metricUVs(ceilingGeo), materialFor(ceilingSurface.materialId));
+    const ceilingMesh = new Mesh(metricUVs(ceilingGeo), materialFor(ceilingSurface.materialId, false, false, ceilingSurface.id));
     ceilingMesh.receiveShadow = true;
     ceilingMesh.castShadow = true;
     ceiling.add(ceilingMesh);
@@ -188,7 +196,7 @@ export function buildArchitecture(scene: Scene, options: BuildOptions): Architec
 
     const wallMesh = new Mesh(
       wallGeometry(frame.length, height, wall.thickness, extendStart, extendEnd, wallOpenings),
-      materialFor(wall.materialId, true, true),
+      materialFor(wall.materialId, true, true, wall.id),
     );
     wallMesh.castShadow = true;
     wallMesh.receiveShadow = true;
@@ -250,7 +258,7 @@ export function buildArchitecture(scene: Scene, options: BuildOptions): Architec
     root.add(slab);
   }
 
-  return { root, ceiling, ceilingGhost, walls: wallParts, openings: openingParts, edges, backdrops, caps };
+  return { root, ceiling, ceilingGhost, walls: wallParts, openings: openingParts, edges, backdrops, caps, surfaceMaterials };
 }
 
 function meetsAnotherWall(all: WallSurface[], wall: WallSurface, point: readonly [number, number]) {

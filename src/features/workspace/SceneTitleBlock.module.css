@@ -1,0 +1,48 @@
+/* Drawn like the title block on a sheet: ruled rows, mono, no emphasis. */
+
+.block {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  max-width: min(22rem, calc(100% - var(--space-8)));
+  border: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--paper-raised) 88%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 4.25rem 1fr;
+}
+
+.row + .row {
+  border-top: 1px solid var(--rule);
+}
+
+.row dt {
+  padding: 0.3rem 0.5rem;
+  border-right: 1px solid var(--rule);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.row dd {
+  padding: 0.3rem 0.6rem;
+  margin: 0;
+  color: var(--ink);
+}
+
+.row[data-provenance] dd {
+  color: var(--ink-3);
+}
+
+/* On a phone the room needs every pixel; the readings live in the panels. */
+@media (max-width: 60rem) {
+  .block {
+    display: none;
+  }
+}

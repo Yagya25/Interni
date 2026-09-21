@@ -1,21 +1,21 @@
-/* Editorial cover: the photograph sits right, the headline anchors the
-   bottom-left and runs over the print's edge. */
+/* The cover: a photograph held in a paper margin, and one sentence set
+   over its lower left. The margin is what makes it read as a print; the
+   timeline dissolves it as the picture starts to become a room. */
 
 .hero {
+  --margin-top: var(--nav-height);
+  --margin-side: var(--gutter);
+  --margin-bottom: clamp(2.75rem, 7vh, 4rem);
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-rows: auto auto minmax(0, 1fr);
-  column-gap: var(--gutter);
-  padding: calc(var(--nav-height) + 1.5rem) var(--gutter) clamp(1.5rem, 5vh, 3.5rem);
 }
 
 .frame {
-  position: relative;
-  grid-column: 6 / 13;
-  grid-row: 1 / 4;
-  margin-bottom: 2.25rem;
+  position: absolute;
+  top: var(--margin-top);
+  left: var(--margin-side);
+  right: var(--margin-side);
+  bottom: var(--margin-bottom);
   background: var(--stone-1);
   outline: 1px solid var(--rule);
   outline-offset: -1px;
@@ -24,6 +24,138 @@
 .frame[data-status="ready"] {
   background: transparent;
   outline-color: transparent;
+}
+
+/* ==========================================================================
+   The sentence
+   ========================================================================== */
+
+.copy {
+  position: absolute;
+  left: calc(var(--margin-side) + clamp(1.25rem, 3vw, 3.25rem));
+  bottom: calc(var(--margin-bottom) + clamp(1.25rem, 5vh, 3.5rem));
+  max-width: min(62rem, 84vw);
+  pointer-events: none;
+  /* Keeps the light behind the words inside the block, above the room. */
+  isolation: isolate;
+  /* Faded and lifted by the scroll: composited rather than repainted. */
+  will-change: opacity, transform;
+}
+
+/* Paper light behind the words, so they hold over any part of the picture
+   without putting them in a box. */
+.copy::before {
+  content: "";
+  position: absolute;
+  inset: -45% -35% -35% -30%;
+  z-index: -1;
+  background: radial-gradient(ellipse 58% 58% at 32% 62%, rgb(239 236 230 / 0.72), transparent 72%);
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-variation-settings: "opsz" 72;
+  font-size: min(clamp(3.1rem, 0.9rem + 7vw, 9.5rem), 15vh);
+  line-height: 0.88;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+
+/* The subject of the sentence, set as a label: the product is named once. */
+.eyebrow {
+  display: block;
+  margin-bottom: clamp(1rem, 2.4vh, 1.6rem);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  animation: fade 1s 0.2s var(--ease-out) backwards;
+}
+
+/* Padded to hold ink that stands outside the tight line box; see the
+   note on `.mask` in layers.module.css. */
+.line {
+  display: block;
+  overflow: hidden;
+  padding: 0.3em 0 0.14em;
+  margin: -0.3em 0 -0.14em;
+}
+
+.line > span {
+  display: block;
+  animation: rise 1.2s var(--ease-out) backwards;
+}
+
+.line:last-child > span {
+  animation-delay: 0.12s;
+}
+
+/* ==========================================================================
+   The lower margin: a way down, and what the picture is
+   ========================================================================== */
+
+.margin {
+  position: absolute;
+  left: var(--margin-side);
+  right: var(--margin-side);
+  bottom: 0;
+  height: var(--margin-bottom);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.04em;
+}
+
+.cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  pointer-events: auto;
+}
+
+/* A hairline that draws and withdraws: the page continues downwards. */
+.cueLine {
+  display: block;
+  width: 2.5rem;
+  height: 1px;
+  background: currentColor;
+  transform-origin: left;
+  animation: cue 2.6s var(--ease-in-out) infinite;
+}
+
+.cue:hover,
+.cue:focus-visible {
+  color: var(--ink);
+}
+
+.caption {
+  display: flex;
+  gap: 1rem;
+  min-width: 0;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.caption span:first-child {
+  flex: none;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.caption span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ==========================================================================
@@ -52,139 +184,13 @@
   stroke-width: 1;
 }
 
-@keyframes wire-draw {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .wireframe {
-    animation: none;
-  }
-}
-
-.caption {
-  position: absolute;
-  top: calc(100% + 0.75rem);
-  left: 0;
-  right: 0;
-  display: flex;
-  gap: 1rem;
-  font-family: var(--font-mono);
-  font-size: var(--text-label);
-  letter-spacing: 0.02em;
-  color: var(--ink-3);
-}
-
-.caption span:first-child {
-  flex: none;
-  color: var(--ink);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.title {
-  grid-column: 1 / 11;
-  grid-row: 3;
-  align-self: end;
-  position: relative;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.heading {
-  font-family: var(--font-display);
-  font-weight: 300;
-  font-variation-settings: "opsz" 72;
-  font-size: clamp(3.4rem, 1rem + 7.9vw, 10.5rem);
-  line-height: 0.86;
-  letter-spacing: -0.045em;
-  color: var(--ink);
-}
-
-.line {
-  display: block;
-  overflow: hidden;
-  padding-bottom: 0.06em;
-  margin-bottom: -0.06em;
-}
-
-.line > span {
-  display: block;
-  animation: rise 1.2s var(--ease-out) backwards;
-}
-
-.line:nth-child(2) > span {
-  animation-delay: 0.12s;
-}
-
-.lede {
-  grid-column: 1 / 5;
-  grid-row: 1;
-  max-width: 24rem;
-  padding-top: clamp(0.5rem, 3vh, 2.5rem);
-  font-size: var(--text-body-l);
-  line-height: 1.42;
-  color: var(--ink-2);
-  text-wrap: pretty;
-  animation: fade 1s 0.35s var(--ease-out) backwards;
-}
-
-.actions {
-  grid-column: 1 / 5;
-  grid-row: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1.25rem 1.75rem;
-  margin-top: 1.75rem;
-  pointer-events: auto;
-  animation: fade 1s 0.45s var(--ease-out) backwards;
-}
-
-.cue {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.625rem;
-  min-height: 2.75rem;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.cue svg {
-  width: 0.625rem;
-  height: 1rem;
-  transition: transform var(--duration-base) var(--ease-out);
-}
-
-.cue:hover svg,
-.cue:focus-visible svg {
-  transform: translateY(3px);
-}
-
-.cue span {
-  background: linear-gradient(currentColor, currentColor) left bottom / 0 1px no-repeat;
-  transition: background-size var(--duration-base) var(--ease-out);
-}
-
-.cue:hover span,
-.cue:focus-visible span {
-  background-size: 100% 1px;
-}
-
-/* Loading and error states live inside the frame */
+/* Loading and error states sit at the top of the frame, clear of the
+   sentence. */
 
 .loader {
   position: absolute;
-  left: 1.25rem;
-  bottom: 1.25rem;
+  left: clamp(1.25rem, 3vw, 3.25rem);
+  top: 1.25rem;
   display: grid;
   gap: 0.625rem;
   width: min(16rem, 70%);
@@ -216,14 +222,24 @@
 
 .error {
   position: absolute;
-  left: 1.25rem;
-  bottom: 1.25rem;
+  left: clamp(1.25rem, 3vw, 3.25rem);
+  top: 1.25rem;
   right: 1.25rem;
+  max-width: 28rem;
+}
+
+@keyframes wire-draw {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes rise {
   from {
-    transform: translateY(105%);
+    transform: translateY(150%);
   }
 }
 
@@ -234,49 +250,49 @@
   }
 }
 
-/* Tablet and phone: headline, lede, the print, then actions. */
+@keyframes cue {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  45% {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+  55% {
+    transform: scaleX(1);
+    transform-origin: right;
+  }
+  100% {
+    transform: scaleX(0);
+    transform-origin: right;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wireframe,
+  .cueLine {
+    animation: none;
+  }
+}
+
+/* Phone: the print keeps its margin; the sentence takes the lower third. */
 @media (max-width: 63.99rem) {
   .hero {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
-    row-gap: 1.1rem;
-    padding-top: calc(var(--nav-height) + 0.75rem);
-    padding-bottom: 1.25rem;
+    --margin-bottom: 3.25rem;
   }
 
-  .title {
-    grid-column: 1;
-    grid-row: 1;
-    align-self: start;
+  .copy {
+    left: calc(var(--margin-side) + 1rem);
+    right: calc(var(--margin-side) + 1rem);
+    bottom: calc(var(--margin-bottom) + 1.25rem);
   }
 
   .heading {
-    font-size: clamp(3.1rem, 1.2rem + 9vw, 6.5rem);
+    font-size: min(clamp(2.6rem, 1rem + 9vw, 5rem), 12vh);
   }
 
-  .line:nth-child(2) > span {
-    padding-left: 0;
-  }
-
-  .lede {
-    grid-column: 1;
-    grid-row: 2;
-    max-width: 32rem;
-    padding-top: 0;
-    font-size: 1.0625rem;
-  }
-
-  .frame {
-    grid-column: 1;
-    grid-row: 3;
-    margin-bottom: 1.6rem;
-    min-height: 12rem;
-  }
-
-  .actions {
-    grid-column: 1;
-    grid-row: 4;
-    margin-top: 0;
-    justify-content: space-between;
+  .caption span:last-child {
+    display: none;
   }
 }

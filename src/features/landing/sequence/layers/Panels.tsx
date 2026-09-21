@@ -2,17 +2,16 @@ import type { CSSProperties } from "react";
 import { demo } from "@/demo";
 import { findOperation } from "@/scene/model/operations";
 import { findById } from "@/scene/model/queries";
-import { formatMetres } from "@/scene/model/summary";
 import styles from "./layers.module.css";
 
 /**
- * Fixed-position readouts for each chapter. They describe the demonstration
- * scene and are derived from it; nothing here is a product metric.
+ * Readouts that belong to the frame rather than to a point in the room: a
+ * scale, a clock, the tools in use, the design direction. They are set like
+ * the legend of a drawing, straight onto the picture, and every value is
+ * derived from the demonstration scene.
  */
 
-const { scene, summary, variant, operations } = demo;
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const { scene, variant, operations } = demo;
 
 export function Panels() {
   const move = findOperation(operations, "move");
@@ -23,26 +22,11 @@ export function Panels() {
     ["limewash-sand", "oak-smoked", "travertine", "boucle-ivory"].includes(m.id),
   );
 
-  const rows: [string, string][] = [
-    ["Room", summary.roomLabel],
-    [
-      "Dimensions",
-      `${summary.dimensions.width.toFixed(2)} × ${summary.dimensions.depth.toFixed(2)} × ${formatMetres(summary.dimensions.height)}`,
-    ],
-    ["Objects", String(summary.objects)],
-    ["Surfaces", `${summary.surfaces}${summary.inferredSurfaces ? ` (${summary.inferredSurfaces} inferred)` : ""}`],
-    ["Light sources", String(summary.lightSources)],
-    ["Windows", String(summary.windows)],
-    ["Doors", String(summary.doors)],
-    ["Materials", String(summary.materials)],
-    ["Relationships", String(summary.relationships)],
-  ];
-
   return (
     <div className={styles.panels}>
-      {/* 02 Depth: what the contours mean */}
-      <div className={`${styles.panel} ${styles.panelBottom}`} data-layer="depth-legend" aria-hidden="true">
-        <p className={styles.panelKicker}>Distance from camera</p>
+      {/* Depth: what the contours mean */}
+      <div className={`${styles.legend} ${styles.legendBottom}`} data-layer="depth-legend" aria-hidden="true">
+        <p className={styles.legendKicker}>Distance from camera</p>
         <div className={styles.depthScale}>
           <span className={styles.depthRamp} />
           <span className={styles.depthTicks}>
@@ -53,20 +37,9 @@ export function Panels() {
         </div>
       </div>
 
-      {/* 04 Objects: counts, derived from the scene */}
-      <div className={`${styles.panel} ${styles.panelBottom}`} data-layer="object-counts" data-keep>
-        <p className={styles.panelKicker}>Detected in this scene</p>
-        <p className={styles.counts}>
-          <span>{plural(summary.objects, "object")}</span>
-          <span>{plural(summary.lightSources, "light source")}</span>
-          <span>{plural(summary.windows, "window")}</span>
-          <span>{plural(summary.doors, "door")}</span>
-        </p>
-      </div>
-
-      {/* 06 Light: the clock that drives the sun */}
-      <div className={`${styles.panel} ${styles.panelBottom}`} data-layer="time-scale" aria-hidden="true">
-        <p className={styles.panelKicker}>Time of day</p>
+      {/* Light: the clock that drives the sun */}
+      <div className={`${styles.legend} ${styles.legendBottom}`} data-layer="time-scale" aria-hidden="true">
+        <p className={styles.legendKicker}>Time of day</p>
         <div className={styles.timeScale} data-time-scale>
           <span className={styles.timeTrack}>
             <span className={styles.timeFill} />
@@ -80,9 +53,9 @@ export function Panels() {
         </div>
       </div>
 
-      {/* 07 Edit: the tools, each lit while it is in use */}
-      <div className={`${styles.panel} ${styles.panelTools}`} data-layer="edit-tools">
-        <p className={styles.panelKicker}>Edit</p>
+      {/* Edit: the tools, each lit while it is in use. Low, where the edit
+          shot has open floor, clear of the labels on the pieces being edited. */}
+      <div className={`${styles.legend} ${styles.legendBottom}`} data-layer="edit-tools">
         <ul className={styles.tools}>
           {[
             ["move", "Move", label(move?.objectId)],
@@ -99,32 +72,11 @@ export function Panels() {
         </ul>
       </div>
 
-      {/* 09 Understanding: an inspection sheet */}
-      <section className={`${styles.panel} ${styles.panelSheet}`} data-layer="inspection" data-keep aria-labelledby="inspection-title">
-        <header className={styles.sheetHead} data-item>
-          <h3 id="inspection-title" className={styles.panelKicker}>
-            AI understanding
-          </h3>
-          <span className={styles.demoTag}>Demonstration values</span>
-        </header>
-        <dl className={styles.sheet}>
-          {rows.map(([term, value]) => (
-            <div key={term} className={styles.sheetRow} data-item>
-              <dt>{term}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      {/* 10 Reimagine: the design direction applied */}
-      <section className={`${styles.panel} ${styles.panelSheet}`} data-layer="variant" data-keep aria-labelledby="variant-title">
-        <header className={styles.sheetHead} data-item>
-          <h3 id="variant-title" className={styles.panelKicker}>
-            Design direction
-          </h3>
-          <span className={styles.demoTag}>Demonstration</span>
-        </header>
+      {/* Reimagine: the design direction applied */}
+      <section className={`${styles.legend} ${styles.legendTop}`} data-layer="variant" data-keep aria-labelledby="variant-title">
+        <h3 id="variant-title" className={styles.legendKicker} data-item>
+          Design direction <span className={styles.demoTag}>Demonstration</span>
+        </h3>
         <p className={styles.variantName} data-item>
           {variant.name}
         </p>

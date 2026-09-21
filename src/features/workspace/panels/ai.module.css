@@ -1,0 +1,117 @@
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border: 1px solid var(--ink-3);
+  background: transparent;
+}
+
+.status[data-available] .dot {
+  border-color: var(--signal);
+  background: var(--signal);
+}
+
+/* The pipeline, as a ruled sequence with one rung missing. */
+
+.pipeline {
+  display: grid;
+  border-left: 1px solid var(--rule-strong);
+}
+
+.stage {
+  position: relative;
+  padding: 0.4rem 0 0.6rem var(--space-4);
+}
+
+.stage::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 0.75rem;
+  width: 5px;
+  height: 5px;
+  background: var(--paper-raised);
+  border: 1px solid var(--ink-3);
+}
+
+.stage[data-built]::before {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.stageName {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.stage[data-built] .stageName {
+  color: var(--ink);
+}
+
+.stageDetail {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: var(--text-small);
+  line-height: 1.4;
+  color: var(--ink-3);
+}
+
+.stageFlag {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--signal);
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.examples {
+  display: grid;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+.examples li::before {
+  content: "\201C";
+}
+
+.examples li::after {
+  content: "\201D";
+}
+
+.kind {
+  margin-left: auto;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--rule-strong);
+  font-size: 0.5625rem;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+}
+
+.aside {
+  margin-top: var(--space-3);
+  font-size: var(--text-small);
+  color: var(--ink-3);
+}

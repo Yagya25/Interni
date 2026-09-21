@@ -1,0 +1,274 @@
+/* Instruments. Square, hairline, mono — drawn like the scales on a rule. */
+
+.field {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.fieldLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.fieldControl {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.fieldNote {
+  grid-column: 2;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--ink-3);
+}
+
+/* Readings ---------------------------------------------------------------- */
+
+.reading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.readingLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.readingValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  color: var(--ink);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Numbers ----------------------------------------------------------------- */
+
+.number {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0 0.5rem;
+  min-height: 2rem;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  cursor: ew-resize;
+  touch-action: none;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.number:hover {
+  border-color: var(--rule-strong);
+}
+
+.number:focus-within {
+  border-color: var(--ink);
+}
+
+.number[data-disabled] {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.numberInput {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  color: var(--ink);
+  cursor: inherit;
+}
+
+.numberInput:focus {
+  outline: none;
+  cursor: text;
+}
+
+.numberUnit {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--ink-3);
+}
+
+/* Range ------------------------------------------------------------------- */
+
+.range {
+  flex: 1;
+  min-width: 0;
+  height: 1.5rem;
+  margin: 0;
+  background: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--rule-strong);
+}
+
+.range::-moz-range-track {
+  height: 1px;
+  background: var(--rule-strong);
+}
+
+.range::-webkit-slider-thumb {
+  appearance: none;
+  width: 2px;
+  height: 0.9rem;
+  margin-top: -0.44rem;
+  background: var(--ink);
+  border: 0;
+  border-radius: 0;
+}
+
+.range::-moz-range-thumb {
+  width: 2px;
+  height: 0.9rem;
+  background: var(--ink);
+  border: 0;
+  border-radius: 0;
+}
+
+.range:focus-visible::-webkit-slider-thumb {
+  background: var(--signal);
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.range:focus-visible::-moz-range-thumb {
+  background: var(--signal);
+}
+
+.range:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Segmented --------------------------------------------------------------- */
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.segment {
+  position: relative;
+  padding: 0.3rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.segment + .segment {
+  border-left: 1px solid var(--rule);
+}
+
+.segment:hover {
+  color: var(--ink);
+}
+
+.segment[data-on] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.segmentInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.segmentInput:focus-visible + span {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+}
+
+/* Colour ------------------------------------------------------------------ */
+
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--rule-strong);
+}
+
+.swatch[data-size="s"] {
+  width: 1rem;
+  height: 1rem;
+}
+
+.color {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2rem;
+  padding: 0 0.5rem 0 0.25rem;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  cursor: pointer;
+}
+
+.color:hover {
+  border-color: var(--rule-strong);
+}
+
+.colorInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.colorInput:focus-visible ~ .colorChip {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.colorChip {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid var(--rule-strong);
+}
+
+.colorValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--ink-2);
+}

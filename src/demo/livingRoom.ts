@@ -282,7 +282,14 @@ export const livingRoom: Scene = {
     "leaf",
   ),
   lights: [
-    { id: "daylight", kind: "daylight", label: "Window light", openingIds: ["window-south", "window-north"] },
+    {
+      id: "daylight",
+      kind: "daylight",
+      label: "Window light",
+      openingIds: ["window-south", "window-north"],
+      // Early afternoon, which is the light the room is described in.
+      timeOfDay: 0.18,
+    },
     { id: "ambient", kind: "ambient", label: "Ambient light", color: "#e9e4dc" },
     {
       id: "light-floor-lamp",

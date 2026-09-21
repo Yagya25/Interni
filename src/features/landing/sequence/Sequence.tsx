@@ -6,6 +6,7 @@ import { demo } from "@/demo";
 import { useMediaQuery, useReducedMotion } from "@/lib/useReducedMotion";
 import type { Id } from "@/scene/model/types";
 import type { SceneStage } from "@/scene/render/SceneStage";
+import { chooseQuality } from "@/scene/render/quality";
 import { createViewState, type RevealGroup } from "@/scene/render/viewState";
 import { timings, TOTAL_SPAN, VH_PER_UNIT } from "./chapters";
 import { ChapterCopy } from "./layers/ChapterCopy";
@@ -17,6 +18,9 @@ import { ProgressRail } from "./ProgressRail";
 import styles from "./Sequence.module.css";
 import { captureShot } from "./shots";
 import { useSequenceTimeline } from "./useSequenceTimeline";
+
+/** The hour the demonstration photograph was taken. */
+const PHOTO_TIME = 0.08;
 
 const revealSeeds = Object.fromEntries(demo.materialCallouts.map((c) => [c.class, c.anchor])) as Partial<
   Record<RevealGroup, readonly [number, number, number]>
@@ -43,7 +47,8 @@ export function Sequence() {
   // Created once; the timeline animates it, the stage renders from it.
   const [view] = useState(() => {
     const state = createViewState(captureShot);
-    state.time = 0.08;
+    state.time = PHOTO_TIME;
+    state.photo = 1;
     return state;
   });
 
@@ -55,10 +60,7 @@ export function Sequence() {
     const viewport = viewportRef.current;
     if (!canvas || !viewport) return;
 
-    const quality =
-      window.matchMedia("(max-width: 900px)").matches || (navigator.hardwareConcurrency ?? 8) <= 4
-        ? "low"
-        : "high";
+    const quality = chooseQuality();
 
     const fail = (kind: StageError) => (error: unknown) => {
       if (cancelled) return;
@@ -79,6 +81,7 @@ export function Sequence() {
             variant: demo.variant.scene,
             operations: demo.operations,
             revealSeeds,
+            photograph: { time: PHOTO_TIME },
             quality,
             onError: fail("lost"),
           });
@@ -117,6 +120,32 @@ export function Sequence() {
     return () => observer.disconnect();
   }, []);
 
+  // Once the room is something you could touch, the pointer picks pieces
+  // out of it. `view.hover` is the timeline's switch for that, so nothing
+  // responds while the room is still a photograph.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport || status !== "ready") return;
+    let frame = 0;
+    const onMove = (event: PointerEvent) => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const stage = stageRef.current;
+        if (!stage) return;
+        stage.setHover(view.hover > 0.02 ? stage.pick(event.clientX, event.clientY) : null);
+      });
+    };
+    const onLeave = () => stageRef.current?.setHover(null);
+    viewport.addEventListener("pointermove", onMove);
+    viewport.addEventListener("pointerleave", onLeave);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport.removeEventListener("pointermove", onMove);
+      viewport.removeEventListener("pointerleave", onLeave);
+    };
+  }, [status, view]);
+
   useSequenceTimeline({ section: sectionRef, root: stageRootRef, view, stage: stageRef, reducedMotion, portrait });
 
   const handleHover = useCallback((id: Id | null) => stageRef.current?.setHover(id), []);
@@ -137,7 +166,6 @@ export function Sequence() {
       <div ref={stageRootRef} className={styles.stage} data-stage-status={status}>
         <div ref={viewportRef} className={styles.viewport} data-print="hide">
           <canvas ref={canvasRef} className={styles.canvas} aria-hidden="true" />
-          <div className={styles.grain} data-grain aria-hidden="true" />
         </div>
 
         <div ref={overlayRef} className={styles.overlay}>

@@ -1,0 +1,127 @@
+.bar {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.frame {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 0.35rem 0.35rem 0.35rem 0.75rem;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.frame:focus-within {
+  border-color: var(--ink);
+}
+
+.frame[data-pending] {
+  opacity: 0.7;
+}
+
+.subject {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  flex: none;
+  align-self: center;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--ink);
+  white-space: nowrap;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subjectLabel {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 0.45rem 0;
+  resize: none;
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.input::placeholder {
+  color: var(--stone-3);
+}
+
+.input:focus {
+  outline: none;
+}
+
+.send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.125rem;
+  height: 2.125rem;
+  background: var(--ink);
+  color: var(--paper);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.send svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.send:hover:not(:disabled) {
+  background: var(--signal);
+}
+
+.send:disabled {
+  background: var(--stone-1);
+  color: var(--stone-3);
+  cursor: default;
+}
+
+.notice {
+  max-width: 62rem;
+  margin: var(--space-2) auto 0;
+  font-size: var(--text-small);
+  line-height: 1.45;
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+
+@media (max-width: 60rem) {
+  .bar {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .subject {
+    max-width: 6rem;
+  }
+
+  .input {
+    font-size: 1rem;
+  }
+}
+
+/* A request that needs a piece selected is guidance, not a failure. */
+.notice[data-tone="select"] {
+  color: var(--ink);
+  border-left: 2px solid var(--signal);
+  padding-left: var(--space-3);
+}

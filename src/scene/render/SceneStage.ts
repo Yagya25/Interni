@@ -1,34 +1,45 @@
 import {
+  BufferAttribute,
   CanvasTexture,
   NeutralToneMapping,
   Color,
+  DepthTexture,
   Group,
   LineBasicMaterial,
   LineDashedMaterial,
   LineSegments,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
+  Object3D,
   PCFShadowMap,
   PerspectiveCamera,
+  Plane,
   PlaneGeometry,
   PMREMGenerator,
   PointLight,
+  RedFormat,
   Scene as ThreeScene,
+  Raycaster,
   ShadowMaterial,
   SRGBColorSpace,
+  Vector2,
   Vector3,
   WebGLRenderer,
+  WebGLRenderTarget,
   BoxGeometry,
+  type BufferGeometry,
   type Material,
   type Texture,
 } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { clamp, degToRad, lerp, range, smoothstep } from "@/lib/math";
 import { findOperation, type SceneOperation } from "@/scene/model/operations";
+import { ringRadius, turnsOnFloor } from "@/scene/model/editing";
 import { findById, objectCenter, roomBounds } from "@/scene/model/queries";
 import type { ArtificialLight, Id, Material as SceneMaterial, Scene, SceneObject, Vec3 } from "@/scene/model/types";
-import { bracketBox, dimensionString, DynamicSegments, lineMaterial } from "./annotations";
+import { bracketBox, dimensionString, DynamicSegments, lineMaterial, rotationRing } from "./annotations";
 import { buildArchitecture, type ArchitectureBuild } from "./architecture";
 import { LightRig } from "./lighting";
 import { MaterialFactory, type MaterialOptions } from "./materials";
@@ -40,15 +51,16 @@ import {
   createShadowDepthMaterial,
   displayColor,
   extendVisibility,
+  PHOTO_ATTRIBUTE,
   Role,
   Variant,
   type InstanceUniforms,
   type RevealUniforms,
 } from "./shading";
 import { TextureLibrary } from "./textures";
-import { createViewState, revealGroups, type RevealGroup, type ViewState } from "./viewState";
+import { pixelRatioFor, QUALITY, type QualityProfile, type StageQuality } from "./quality";
+import { copyViewState, createViewState, revealGroups, type RevealGroup, type ViewState } from "./viewState";
 
-export type StageQuality = "high" | "low";
 
 export interface StageOptions {
   canvas: HTMLCanvasElement;
@@ -62,6 +74,11 @@ export interface StageOptions {
   revealSeeds?: Partial<Record<RevealGroup, Vec3>>;
   /** Bring your own state object, e.g. one a timeline already animates. */
   view?: ViewState;
+  /**
+   * Record what the room's capture camera can see, as it stood at this time
+   * of day, so `view.photo` can show the room as the photograph knows it.
+   */
+  photograph?: { time: number };
   quality: StageQuality;
   onError?: (error: Error) => void;
 }
@@ -93,6 +110,8 @@ interface LampSlot {
   fixture: ObjectRuntime;
   offset: Vector3;
   power: number;
+  /** The scene light this fixture emits, re-read whenever the scene changes. */
+  source: ArtificialLight;
 }
 
 interface Anchor {
@@ -108,6 +127,11 @@ interface Anchor {
   tagHeight: number;
   /** Screen box of the placed tag, reused each frame to avoid allocation. */
   readonly box: { x0: number; x1: number; y0: number; y1: number };
+  /**
+   * What was last written to the element. Styles are only touched when they
+   * change, so a still label costs no style work while the camera moves on.
+   */
+  written: { x: number; y: number; lead: number; flip: boolean };
 }
 
 /** Leader length from pin to tag: the resting length, and the most we stretch. */
@@ -117,6 +141,8 @@ const LEAD_MAX = 132;
 const LEAD_GAP = 4;
 /** Space a tag keeps from the edge of the stage before it flips sides. */
 const EDGE_MARGIN = 12;
+/** Space kept clear at the top of the stage, where page navigation sits. */
+const TOP_CLEARANCE = 64;
 
 const UP = new Vector3(0, 1, 0);
 const FALLBACK_MATERIAL: SceneMaterial = {
@@ -169,6 +195,9 @@ export class SceneStage {
   private relations?: DynamicSegments;
   private rays?: DynamicSegments;
   private readonly dimensionLines: LineSegments[] = [];
+  /** The ring the selected piece is turned by. Built on first selection. */
+  private ring?: LineSegments;
+  private readonly ringMaterial = lineMaterial(0);
   private readonly edgeMaterial = lineMaterial(0);
   private readonly dimensionMaterial = lineMaterial(0);
   private readonly relationMaterial: LineDashedMaterial;
@@ -191,16 +220,59 @@ export class SceneStage {
   private frameRect = { x: 0, y: 0, w: 1, h: 1 };
   private size = { w: 1, h: 1 };
   private hovered: Id | null = null;
+  private selected: Id | null = null;
+  /** The scene as it currently stands, which edits move forward. */
+  private current: Scene;
+  private readonly raycaster = new Raycaster();
+  private readonly pointer = new Vector2();
+  private readonly dragPlane = new Plane();
   private active = true;
   private ready = false;
   private frameRequest = 0;
   private disposed = false;
   private readonly resizeObserver: ResizeObserver;
+  /** Which variant newly built objects belong to. Fixed once `init` runs. */
+  private baseVariant: number = Variant.shared;
+  /** A scene that arrived before the build finished. Applied once it has. */
+  private queued?: Scene;
   private readonly tmp = new Vector3();
   private readonly tmp2 = new Vector3();
+  private readonly tmp3 = new Vector3();
+  private readonly tmp4 = new Vector3();
+  private readonly tmpSize = new Vector2();
+
+  /** The depth the photograph recorded: what its camera could see. */
+  private photoDepth?: WebGLRenderTarget;
+  /** The view the photograph is taken in. */
+  private readonly photoView?: ViewState;
+  /** Holds the live view while the stage draws another one. */
+  private readonly scratchView: ViewState;
+  /** Retaken, lazily, whenever the canvas or the hero frame changes shape. */
+  private photoStale = true;
+  private photoReady = false;
+
+  private readonly profile: QualityProfile;
+  /** Set by the frame governor when a device proves slower than its tier. */
+  private ratioCap = Infinity;
+  private lastFrameAt = 0;
+  private readonly intervals = new Float32Array(90);
+  private readonly sortedIntervals = new Float32Array(90);
+  private intervalCount = 0;
+  private governorQuietUntil = 0;
+
+  /**
+   * The shadow map is redrawn only when something that casts or lights it
+   * has changed. Most of the film moves only the camera, which leaves every
+   * shadow exactly where it was.
+   */
+  private readonly shadowKey = new Float64Array(9).fill(NaN);
+  /** Rises with every scene edit, so an edit always redraws shadows. */
+  private sceneVersion = 0;
 
   constructor(private readonly options: StageOptions) {
-    const { canvas, scene, quality } = options;
+    const { canvas, scene, quality, viewport } = options;
+    this.current = scene;
+    this.profile = QUALITY[quality];
     this.view =
       options.view ??
       createViewState({
@@ -219,13 +291,14 @@ export class SceneStage {
       alpha: false,
       powerPreference: "high-performance",
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === "high" ? 2 : 1.5));
+    this.renderer.setPixelRatio(pixelRatioFor(this.profile, viewport.clientWidth, viewport.clientHeight));
     this.renderer.outputColorSpace = SRGBColorSpace;
     // Neutral keeps material colours true and rolls highlights off softly,
     // which is how a well-exposed interior photograph behaves.
     this.renderer.toneMapping = NeutralToneMapping;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.setClearColor(new Color("#efece6"), 1);
     // Synchronous shader validation is for development. In production it
     // blocks parallel compilation and surfaces driver-level notices from
@@ -253,6 +326,22 @@ export class SceneStage {
     });
     this.rayMaterial = this.relationMaterial.clone();
     this.rayMaterial.color.set("#191816");
+
+    if (options.photograph) {
+      const c = scene.camera;
+      this.photoView = createViewState({
+        px: c.position[0],
+        py: c.position[1],
+        pz: c.position[2],
+        tx: c.target[0],
+        ty: c.target[1],
+        tz: c.target[2],
+        fov: c.verticalFov,
+      });
+      this.photoView.frame = 0;
+      this.photoView.time = options.photograph.time;
+    }
+    this.scratchView = createViewState(this.view.camera);
 
     canvas.addEventListener("webglcontextlost", this.handleContextLost);
     this.resizeObserver = new ResizeObserver(() => this.resize());
@@ -305,6 +394,7 @@ export class SceneStage {
     if (this.disposed) return;
 
     const beforeVariant = hasVariant ? Variant.before : Variant.shared;
+    this.baseVariant = beforeVariant;
     scene.objects.forEach((o) => this.objects.set(o.id, this.buildObject(o, scene, beforeVariant)));
     const replace = findOperation(operations, "replace");
     if (replace) {
@@ -314,6 +404,8 @@ export class SceneStage {
     }
     variant?.objects.forEach((o) => this.afterObjects.set(o.id, this.buildObject(o, variant, Variant.after)));
     this.linkObjects();
+    // Everything is still where the photograph found it.
+    if (this.options.photograph) this.bakePhotoCoordinates();
     report(0.7);
     await yieldFrame();
     if (this.disposed) return;
@@ -332,8 +424,16 @@ export class SceneStage {
       // Older drivers without parallel compile: the first render compiles.
     }
     if (this.disposed) return;
+    this.warmUp();
     this.ready = true;
     report(1);
+    // Edits made while the room was still building are applied now, against
+    // the scene it was actually built from.
+    if (this.queued) {
+      const queued = this.queued;
+      this.queued = undefined;
+      this.syncScene(queued);
+    }
     this.renderNow();
   }
 
@@ -350,9 +450,13 @@ export class SceneStage {
         if (object instanceof Mesh && object.customDepthMaterial) object.customDepthMaterial.dispose();
       }
     });
+    this.ring?.geometry.dispose();
+    this.ringMaterial.dispose();
     this.materials.dispose();
     this.textures.dispose();
     this.blobTexture?.dispose();
+    this.photoDepth?.depthTexture?.dispose();
+    this.photoDepth?.dispose();
     this.envTexture.dispose();
     this.pmrem.dispose();
     this.renderer.dispose();
@@ -395,6 +499,7 @@ export class SceneStage {
       tagWidth: 0,
       tagHeight: 0,
       box: { x0: 0, x1: 0, y0: 0, y1: 0 },
+      written: { x: NaN, y: NaN, lead: NaN, flip: false },
     }));
     // Substantial labels claim their place first; small ones fit around them.
     // The sort is stable, so markup order decides everything else.
@@ -432,8 +537,220 @@ export class SceneStage {
   }
 
   setHover(objectId: Id | null) {
+    if (this.hovered === objectId) return;
     this.hovered = objectId;
     this.invalidate();
+  }
+
+  setSelection(objectId: Id | null) {
+    if (this.selected === objectId) return;
+    this.selected = objectId;
+    this.invalidate();
+  }
+
+  // -------------------------------------------------------------------------
+  // Picking
+
+  /**
+   * The object under a point in client coordinates, or null for the room
+   * itself or empty space. Architecture is included in the cast so that a
+   * piece standing behind a wall is not pickable through it.
+   */
+  pick(clientX: number, clientY: number): Id | null {
+    if (!this.ready || this.disposed) return null;
+    if (!this.castFrom(clientX, clientY)) return null;
+    const targets: Object3D[] = [];
+    if (this.before) targets.push(this.before.root);
+    for (const runtime of this.objects.values()) targets.push(runtime.group);
+
+    for (const hit of this.raycaster.intersectObjects(targets, true)) {
+      // Linework and the invisible shadow enclosure are not surfaces a
+      // person can point at.
+      if (!(hit.object instanceof Mesh)) continue;
+      const material = hit.object.material;
+      if (!Array.isArray(material) && material.colorWrite === false) continue;
+      return objectIdOf(hit.object);
+    }
+    return null;
+  }
+
+  /**
+   * Where a point in client coordinates meets the plane through `origin`
+   * with the given normal. Dragging a piece is a cast onto the plane it is
+   * free to move in: the floor under it, or the wall it hangs on.
+   */
+  pointOnPlane(clientX: number, clientY: number, origin: Vec3, normal: Vec3): Vec3 | null {
+    if (this.disposed || !this.castFrom(clientX, clientY)) return null;
+    this.dragPlane.setFromNormalAndCoplanarPoint(
+      this.tmp.set(...normal).normalize(),
+      this.tmp2.set(...origin),
+    );
+    const hit = this.raycaster.ray.intersectPlane(this.dragPlane, this.tmp);
+    return hit ? [hit.x, hit.y, hit.z] : null;
+  }
+
+  private castFrom(clientX: number, clientY: number): boolean {
+    const rect = this.options.canvas.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return false;
+    this.pointer.set(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Editing
+
+  /**
+   * Move the stage onto a new version of its scene.
+   *
+   * Operations produce a new Scene that shares everything they did not
+   * touch, so the diff below is mostly reference comparisons: a sofa sliding
+   * across the floor repaints no materials and rebuilds no geometry. Only a
+   * change to what an object *is* - its category, form or measured size -
+   * costs a rebuild.
+   */
+  syncScene(next: Scene) {
+    const previous = this.current;
+    if (next === previous || this.disposed) return;
+    if (!this.ready) {
+      // Nothing is built to diff against yet.
+      this.queued = next;
+      return;
+    }
+    this.current = next;
+
+    const changed = new Set<Id>();
+    if (next.materials !== previous.materials) {
+      const before = new Map(previous.materials.map((m) => [m.id, m]));
+      for (const material of next.materials) {
+        if (before.get(material.id) !== material) changed.add(material.id);
+      }
+    }
+
+    if (changed.size > 0 || next.surfaces !== previous.surfaces) this.syncSurfaces(next, changed);
+    if (changed.size > 0 || next.objects !== previous.objects) this.syncObjects(next, changed);
+    if (next.lights !== previous.lights) this.syncLights(next);
+    this.sceneVersion += 1;
+    this.invalidate();
+  }
+
+  private syncSurfaces(next: Scene, changed: Set<Id>) {
+    this.before?.surfaceMaterials.forEach((material, surfaceId) => {
+      const surface = findById(next.surfaces, surfaceId);
+      if (!surface) return;
+      const source = findById(next.materials, surface.materialId) ?? FALLBACK_MATERIAL;
+      if (material.userData.sourceId === source.id && !changed.has(source.id)) return;
+      this.materials.applyTo(material, source);
+    });
+  }
+
+  private syncObjects(next: Scene, changed: Set<Id>) {
+    const present = new Set<Id>();
+    // Only a change to what is in the room, or to what holds it up, can
+    // alter the support chains. A sofa sliding across the floor cannot,
+    // so the relinking below stays out of the drag.
+    let structural = false;
+    for (const object of next.objects) {
+      present.add(object.id);
+      const runtime = this.objects.get(object.id);
+      if (!runtime) {
+        this.objects.set(object.id, this.buildObject(object, next, this.baseVariant));
+        structural = true;
+        continue;
+      }
+      if (rebuildNeeded(runtime.source, object)) {
+        this.disposeRuntime(runtime);
+        this.objects.set(object.id, this.buildObject(object, next, this.baseVariant));
+        structural = true;
+        continue;
+      }
+      let repaint = changed.size > 0;
+      if (runtime.source !== object) {
+        if (runtime.source.support !== object.support) structural = true;
+        // A material's own definition can change under an object that did
+        // not, and an object can be pointed at a different one.
+        if (runtime.source.materials !== object.materials) repaint = true;
+        runtime.source = object;
+        runtime.rest.set(...object.transform.position);
+        runtime.restRotation = object.transform.rotation[1];
+        const [sx, sy, sz] = object.transform.scale;
+        runtime.group.rotation.x = object.transform.rotation[0];
+        runtime.group.rotation.z = object.transform.rotation[2];
+        if (!runtime.group.scale.equals(this.tmp2.set(sx, sy, sz))) {
+          runtime.group.scale.set(sx, sy, sz);
+          // The contact shadow is a separate plane, so it is scaled by hand.
+          runtime.blob?.scale.set(sx, 1, sz);
+        }
+        runtime.height = object.dimensions[1] * sy;
+      }
+      if (repaint) this.syncObjectMaterials(runtime, object, next, changed);
+    }
+
+    for (const [id, runtime] of this.objects) {
+      if (present.has(id)) continue;
+      this.disposeRuntime(runtime);
+      this.objects.delete(id);
+      structural = true;
+    }
+    // Support chains, lift directions and draw order are all derived.
+    if (structural) this.linkObjects();
+  }
+
+  private syncObjectMaterials(
+    runtime: ObjectRuntime,
+    object: SceneObject,
+    scene: Scene,
+    changed: Set<Id>,
+  ) {
+    runtime.materials.forEach((material) => {
+      const slot = material.userData.slot as string | undefined;
+      const source =
+        findById(scene.materials, (slot && object.materials[slot]) || "") ?? FALLBACK_MATERIAL;
+      if (material.userData.sourceId === source.id && !changed.has(source.id)) return;
+      this.materials.applyTo(material, source);
+      // A repaint supersedes any restyle the timeline had blended part-way.
+      delete material.userData.restyleFrom;
+    });
+  }
+
+  private syncLights(next: Scene) {
+    for (const lamp of this.lamps) {
+      const source = next.lights.find(
+        (l): l is ArtificialLight => l.kind === "artificial" && l.id === lamp.source.id,
+      );
+      if (!source) continue;
+      if (source.colorTemperature !== lamp.source.colorTemperature) {
+        lamp.light.color.copy(kelvinToColor(source.colorTemperature));
+      }
+      lamp.source = source;
+    }
+  }
+
+  private disposeRuntime(runtime: ObjectRuntime) {
+    const perished = new Set<Material>();
+    runtime.group.traverse((child) => {
+      if (child instanceof Mesh || child instanceof LineSegments) child.geometry.dispose();
+      if (child instanceof Mesh && child.customDepthMaterial) perished.add(child.customDepthMaterial);
+    });
+    perished.forEach((m) => m.dispose());
+    runtime.group.removeFromParent();
+    runtime.materials.forEach((m) => m.dispose());
+    runtime.bracketMaterial?.dispose();
+    if (runtime.blob) {
+      runtime.blob.removeFromParent();
+      runtime.blob.geometry.dispose();
+      runtime.blobMaterial?.dispose();
+    }
+    this.orderedBefore = this.orderedBefore.filter((r) => r !== runtime);
+    this.lamps = this.lamps.filter((lamp) => {
+      if (lamp.fixture !== runtime) return true;
+      lamp.light.removeFromParent();
+      lamp.light.dispose();
+      return false;
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -559,6 +876,145 @@ export class SceneStage {
     this.orderedBefore = [...this.objects.values()].sort((a, b) => depthOf(a) - depthOf(b));
   }
 
+  /**
+   * Record where every surface sat in the capture camera's view, with the
+   * room at rest, as a vertex attribute (see `PHOTO_ATTRIBUTE`). Runs once,
+   * after building and before anything has moved.
+   */
+  private bakePhotoCoordinates() {
+    const shot = this.options.scene.camera;
+    const eye = new PerspectiveCamera();
+    eye.position.set(...shot.position);
+    eye.lookAt(...shot.target);
+    eye.updateMatrixWorld(true);
+    const toEye = new Matrix4();
+    const point = new Vector3();
+    const baked = new Set<BufferGeometry>();
+    const roots = [this.before?.root, ...[...this.objects.values()].map((r) => r.group)];
+    for (const root of roots) {
+      if (!root) continue;
+      root.updateMatrixWorld(true);
+      root.traverse((node) => {
+        if (!(node instanceof Mesh)) return;
+        // A geometry shared by two meshes can hold only one set of
+        // coordinates, so the second gets a copy of its own.
+        if (baked.has(node.geometry)) node.geometry = node.geometry.clone();
+        baked.add(node.geometry);
+        toEye.multiplyMatrices(eye.matrixWorldInverse, node.matrixWorld);
+        const position = node.geometry.getAttribute("position");
+        const out = new Float32Array(position.count * 3);
+        for (let i = 0; i < position.count; i += 1) {
+          point.fromBufferAttribute(position, i).applyMatrix4(toEye).toArray(out, i * 3);
+        }
+        node.geometry.setAttribute(PHOTO_ATTRIBUTE, new BufferAttribute(out, 3));
+      });
+    }
+  }
+
+  /**
+   * Take the photograph: record, from the room's capture camera and with
+   * the room as it stood then, the depth of whatever that camera could see.
+   *
+   * The picture itself is not kept. Shown from anywhere but where it was
+   * taken, a photograph's pixels are stretched and soften; the room renders
+   * sharply from any viewpoint. What the photograph contributes is knowledge:
+   * which surfaces it saw, and so which it never did.
+   *
+   * The frustum is widened just enough to also fill the hero frame, whose
+   * proportions differ from the canvas's, and the depth is recorded at up to
+   * twice the canvas's resolution so the edge of the unseen stays clean.
+   */
+  private capturePhotograph() {
+    const { photoView } = this;
+    if (!photoView) return;
+    this.photoStale = false;
+    const g = this.globals;
+    const hovered = this.hovered;
+    const selected = this.selected;
+    const held = copyViewState(this.scratchView, this.view);
+    copyViewState(this.view, photoView);
+    this.hovered = this.selected = null;
+    // A texture must not be sampled while it is being written.
+    g.uPhotoDepth.value = null;
+    this.applyView();
+
+    const { w, h } = this.size;
+    const aspect = w / h;
+    const fov = photoView.camera.fov;
+    const cover = (a: number) => {
+      const t = Math.tan(degToRad(effectiveFov(fov, a)) / 2);
+      return Math.max(t, (t * a) / aspect);
+    };
+    const half = Math.max(cover(aspect), cover(this.frameRect.w / this.frameRect.h)) * 1.02;
+    const camera = this.camera;
+    camera.clearViewOffset();
+    camera.aspect = aspect;
+    camera.fov = (2 * Math.atan(half) * 180) / Math.PI;
+    camera.updateProjectionMatrix();
+
+    const buffer = this.renderer.getDrawingBufferSize(this.tmpSize);
+    const scale = Math.min(
+      2,
+      MAX_TEXTURE_EDGE / Math.max(buffer.x, buffer.y),
+      Math.sqrt(PHOTO_DEPTH_BUDGET / (buffer.x * buffer.y)),
+    );
+    const dw = Math.max(1, Math.round(buffer.x * scale));
+    const dh = Math.max(1, Math.round(buffer.y * scale));
+    if (!this.photoDepth) {
+      // Only the depth attachment is read; the colour is a single channel.
+      this.photoDepth = new WebGLRenderTarget(dw, dh, { format: RedFormat, depthTexture: new DepthTexture(dw, dh) });
+    } else if (this.photoDepth.width !== dw || this.photoDepth.height !== dh) {
+      this.photoDepth.setSize(dw, dh);
+    }
+    this.renderer.setRenderTarget(this.photoDepth);
+    this.renderer.render(this.three, camera);
+    this.renderer.setRenderTarget(null);
+
+    g.uPhotoDepth.value = this.photoDepth.depthTexture;
+    g.uPhotoTexel.value.set(1 / dw, 1 / dh);
+    g.uPhotoProjection.value.copy(camera.projectionMatrix);
+    g.uPhotoNear.value = camera.near;
+    g.uPhotoFar.value = camera.far;
+    this.photoReady = true;
+
+    copyViewState(this.view, held);
+    this.hovered = hovered;
+    this.selected = selected;
+  }
+
+  /**
+   * Draw once with every layer of the story showing, behind the loader.
+   * Compiling a program is not the whole cost: drivers build some shader
+   * variants only when a draw first needs them, and a line or cap that first
+   * appears in the middle of a scroll would stall that frame to do it.
+   */
+  private warmUp() {
+    const held = copyViewState(this.scratchView, this.view);
+    Object.assign(this.view, {
+      frame: 0,
+      depth: 1,
+      depthFront: 10,
+      clay: 0.5,
+      edges: 1,
+      explode: 0.5,
+      separate: 0.5,
+      boxes: 1,
+      rays: 1,
+      time: 0.5,
+      editReplace: 0.5,
+      cutaway: 1,
+      relations: 1,
+      dimensions: 1,
+      wave: 0.5,
+      waveLine: 1,
+    });
+    this.applyView();
+    this.renderer.shadowMap.needsUpdate = true;
+    this.renderer.render(this.three, this.camera);
+    copyViewState(this.view, held);
+    this.shadowKey.fill(NaN);
+  }
+
   /** Invisible walls that only cast shadows, closing the room to the sun. */
   private addShadowEnclosure(scene: Scene) {
     const b = roomBounds(scene);
@@ -571,7 +1027,7 @@ export class SceneStage {
 
   private buildLighting(scene: Scene, variant?: Scene) {
     const windows = (this.before?.openings ?? []).filter((o) => o.kind === "window");
-    this.rig = new LightRig(this.three, this.roomCenter, windows, this.options.quality === "high" ? 2048 : 1024);
+    this.rig = new LightRig(this.three, this.roomCenter, windows, this.profile.shadowMapSize);
 
     const addLamps = (source: Scene, objects: Map<Id, ObjectRuntime>) => {
       source.lights
@@ -583,7 +1039,13 @@ export class SceneStage {
           light.castShadow = false;
           this.three.add(light);
           const pendant = fixture.source.category === "pendant-lamp";
-          this.lamps.push({ light, fixture, offset: new Vector3(...l.emitterOffset), power: pendant ? 2.6 : 3.4 });
+          this.lamps.push({
+            light,
+            fixture,
+            offset: new Vector3(...l.emitterOffset),
+            power: pendant ? 2.6 : 3.4,
+            source: l,
+          });
         });
     };
     addLamps(scene, this.objects);
@@ -661,11 +1123,19 @@ export class SceneStage {
     const { viewport } = this.options;
     const w = Math.max(1, viewport.clientWidth);
     const h = Math.max(1, viewport.clientHeight);
-    if (w !== this.size.w || h !== this.size.h) {
+    // Re-read every time: zooming the page or moving the window to another
+    // display changes the device pixel ratio without resizing anything.
+    const ratio = pixelRatioFor(this.profile, w, h, this.ratioCap);
+    if (w !== this.size.w || h !== this.size.h || ratio !== this.renderer.getPixelRatio()) {
+      if (w !== this.size.w || h !== this.size.h) {
+        // The photograph is framed for the canvas as it was.
+        this.photoStale = true;
+        // Label type is responsive, so the cached tag boxes are now stale.
+        this.tagsMeasured = false;
+      }
       this.size = { w, h };
+      this.renderer.setPixelRatio(ratio);
       this.renderer.setSize(w, h, false);
-      // Label type is responsive, so the cached tag boxes are now stale.
-      this.tagsMeasured = false;
     }
     this.measureFrame();
     this.renderNow();
@@ -673,25 +1143,83 @@ export class SceneStage {
 
   private measureFrame() {
     const { viewport } = this.options;
+    const previous = this.frameRect;
     if (!this.frameElement) {
       this.frameRect = { x: 0, y: 0, w: this.size.w, h: this.size.h };
-      return;
+    } else {
+      const outer = viewport.getBoundingClientRect();
+      const inner = this.frameElement.getBoundingClientRect();
+      this.frameRect = {
+        x: inner.left - outer.left,
+        y: inner.top - outer.top,
+        w: Math.max(1, inner.width),
+        h: Math.max(1, inner.height),
+      };
     }
-    const outer = viewport.getBoundingClientRect();
-    const inner = this.frameElement.getBoundingClientRect();
-    this.frameRect = {
-      x: inner.left - outer.left,
-      y: inner.top - outer.top,
-      w: Math.max(1, inner.width),
-      h: Math.max(1, inner.height),
-    };
+    // The photograph's frustum is widened to cover the hero frame.
+    if (previous.w !== this.frameRect.w || previous.h !== this.frameRect.h) this.photoStale = true;
   }
 
   private renderNow() {
     if (!this.ready || this.disposed) return;
+    this.observeFrame(performance.now());
+    if (this.photoStale && this.view.photo > 0.001) this.capturePhotograph();
     this.applyView();
+    if (this.shadowsChanged()) this.renderer.shadowMap.needsUpdate = true;
     this.renderer.render(this.three, this.camera);
     this.projectAnchors();
+  }
+
+  /** Whether anything that casts a shadow, or the sun, has moved. */
+  private shadowsChanged() {
+    const v = this.view;
+    const key = this.shadowKey;
+    let changed = false;
+    const values = SHADOW_VALUES;
+    values[0] = v.time;
+    values[1] = v.separate;
+    values[2] = v.editMove;
+    values[3] = v.editReplace;
+    values[4] = v.arrange;
+    values[5] = v.wave;
+    values[6] = v.explode;
+    values[7] = v.cutaway;
+    values[8] = this.sceneVersion;
+    for (let i = 0; i < values.length; i += 1) {
+      if (key[i] !== values[i]) {
+        key[i] = values[i];
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /**
+   * The frame governor. While the stage renders continuously, it keeps the
+   * last few seconds of frame intervals; if the typical frame is taking long
+   * enough to drop below about 45 frames a second, it draws fewer pixels,
+   * a quarter step at a time, down to the tier's floor. It never steps back
+   * up within a visit, so the resolution cannot oscillate.
+   */
+  private observeFrame(now: number) {
+    const interval = now - this.lastFrameAt;
+    this.lastFrameAt = now;
+    // A gap means the stage was idle, not slow.
+    if (interval > 100) return;
+    this.intervals[this.intervalCount] = interval;
+    this.intervalCount += 1;
+    if (this.intervalCount < this.intervals.length) return;
+    this.intervalCount = 0;
+    if (now < this.governorQuietUntil) return;
+    this.sortedIntervals.set(this.intervals);
+    this.sortedIntervals.sort();
+    const median = this.sortedIntervals[this.sortedIntervals.length >> 1];
+    const ratio = this.renderer.getPixelRatio();
+    if (median > SLOW_FRAME_MS && ratio > this.profile.minPixelRatio) {
+      this.ratioCap = Math.max(this.profile.minPixelRatio, ratio - 0.25);
+      this.governorQuietUntil = now + 2000;
+      this.resize();
+    }
   }
 
   private applyView() {
@@ -700,6 +1228,7 @@ export class SceneStage {
 
     // Understanding layers
     const g = this.globals;
+    g.uPhoto.value = this.photoReady ? v.photo : 0;
     g.uDepthMix.value = v.depth;
     g.uDepthFront.value = v.depthFront;
     g.uClay.value = v.clay;
@@ -733,9 +1262,12 @@ export class SceneStage {
     }
 
     // Sky behind the windows exists only while the room is a photograph:
-    // not in the model views, the exploded view or the cutaway. It returns
-    // with the glass when materials are identified.
+    // not in the model views, the exploded view or the cutaway, and not
+    // once the camera has risen above the ceiling, from where the planes
+    // would be seen floating outside the walls. It returns with the glass
+    // when materials are identified.
     const inside =
+      (1 - smoothstep(this.roomMax.y, this.roomMax.y + 0.6, v.camera.py)) *
       (1 - smoothstep(0.15, 0.45, v.cutaway)) *
       (1 - smoothstep(0.02, 0.2, v.explode)) *
       (1 - v.clay * (1 - v.reveal.glass));
@@ -836,14 +1368,24 @@ export class SceneStage {
 
       if (r.bracketMaterial) {
         const hovered = this.hovered === id;
+        // Selection reads an object out of the room on its own. Hovering
+        // only does so where the driver has asked for it, so the story can
+        // keep its brackets off until the room becomes something to touch.
+        const focus = Math.max(this.selected === id ? 1 : 0, hovered ? v.hover * 0.55 : 0);
         let emphasis = 0;
         if (move && id === move.objectId) emphasis = bell(v.editMove);
         if (replace && (id === replace.objectId || id === replace.replacement.id)) emphasis = bell(v.editReplace);
         if (restyle && id === restyle.objectId) emphasis = bell(v.editMaterial);
         const visible = replace && id === replace.replacement.id ? range(0.4, 0.6, v.editReplace) : 1;
         const hiddenOld = replace && id === replace.objectId ? 1 - range(0.4, 0.6, v.editReplace) : 1;
-        r.bracketMaterial.opacity = Math.max(v.boxes * (hovered ? 1 : 0.62) * visible * hiddenOld, emphasis * 0.95);
-        r.bracketMaterial.color.copy(hovered || emphasis > 0.02 ? this.globals.uAccent.value : INK);
+        r.bracketMaterial.opacity = Math.max(
+          v.boxes * (hovered ? 1 : 0.62) * visible * hiddenOld,
+          emphasis * 0.95,
+          focus,
+        );
+        r.bracketMaterial.color.copy(
+          hovered || focus > 0 || emphasis > 0.02 ? this.globals.uAccent.value : INK,
+        );
         r.bracket!.visible = r.bracketMaterial.opacity > 0.005;
       }
       if (r.blob && r.blobMaterial) {
@@ -878,6 +1420,37 @@ export class SceneStage {
         r.blobMaterial.opacity = 0.34;
       }
     }
+
+    this.applyRing();
+  }
+
+  /**
+   * The rotation ring sits on whatever carries the selected piece, just
+   * clear of its footprint. It is the only handle the workspace shows:
+   * inside it the piece is dragged, on it the piece is turned.
+   */
+  private applyRing() {
+    const runtime = this.selected ? this.objects.get(this.selected) : undefined;
+    const shows = runtime !== undefined && turnsOnFloor(runtime.source);
+    if (!shows) {
+      if (this.ring) this.ring.visible = false;
+      return;
+    }
+    if (!this.ring) {
+      this.ring = rotationRing(this.ringMaterial);
+      this.three.add(this.ring);
+    }
+    const radius = ringRadius(runtime.source);
+    this.ring.visible = true;
+    this.ring.position.set(
+      runtime.group.position.x,
+      runtime.group.position.y + 0.006,
+      runtime.group.position.z,
+    );
+    this.ring.rotation.y = runtime.group.rotation.y;
+    this.ring.scale.setScalar(radius);
+    this.ringMaterial.opacity = 0.85;
+    this.ringMaterial.color.copy(this.globals.uAccent.value);
   }
 
   private applyLighting(waveX: number) {
@@ -902,7 +1475,10 @@ export class SceneStage {
           : fixture.variant === Variant.before
             ? 1 - smoothstep(x - 0.3, x + 0.3, waveX)
             : 1;
-      const level = s.lamps * presence;
+      // A fixture follows the daylight until somebody reaches for the switch.
+      const src = lamp.source;
+      const base = src.on === undefined ? s.lamps : src.on ? 1 : 0;
+      const level = base * (src.intensity ?? 1) * presence;
       lamp.light.position
         .copy(lamp.offset)
         .applyAxisAngle(UP, fixture.group.rotation.y)
@@ -916,7 +1492,7 @@ export class SceneStage {
 
   private applyAnnotations() {
     const v = this.view;
-    const { scene } = this.options;
+    const scene = this.current;
 
     // Relationships between entities, as dashed hairlines.
     if (this.relations) {
@@ -924,8 +1500,8 @@ export class SceneStage {
       this.relations.lines.visible = v.relations > 0.005;
       if (this.relations.lines.visible) {
         scene.relationships.forEach((rel, i) => {
-          const a = this.entityPoint(rel.subjectId, new Vector3());
-          const b = this.entityPoint(rel.objectId, new Vector3(), a);
+          const a = this.entityPoint(rel.subjectId, this.tmp3);
+          const b = this.entityPoint(rel.objectId, this.tmp4, a);
           this.relations!.set(i, a, b);
         });
         this.relations.commit();
@@ -940,14 +1516,15 @@ export class SceneStage {
       this.rays.lines.visible = this.rayMaterial.opacity > 0.005;
       if (this.rays.lines.visible) {
         const windows = (this.before?.openings ?? []).filter((o) => o.kind === "window");
-        const down = s.sunDirection.clone().negate();
+        const down = this.tmp.copy(s.sunDirection).negate();
         windows.forEach((w, i) => {
-          [-0.35, 0.35].forEach((dy, j) => {
-            const start = w.center.clone().add(new Vector3(0, dy * w.height, 0));
+          for (let j = 0; j < 2; j += 1) {
+            const start = this.tmp3.copy(w.center);
+            start.y += (j === 0 ? -0.35 : 0.35) * w.height;
             const t = start.y / Math.max(0.05, -down.y);
-            const end = start.clone().addScaledVector(down, Math.min(t, 8));
+            const end = this.tmp4.copy(start).addScaledVector(down, Math.min(t, 8));
             this.rays!.set(i * 2 + j, start, end);
-          });
+          }
         });
         this.rays.commit();
       }
@@ -974,7 +1551,7 @@ export class SceneStage {
       const offset = this.tmp2.copy(towards).sub(origin).dot(wall.inward);
       return out.copy(towards).addScaledVector(wall.inward, -offset);
     }
-    const light = this.options.scene.lights.find((l) => l.id === id);
+    const light = this.current.lights.find((l) => l.id === id);
     if (light?.kind === "daylight") {
       const first = this.before?.openings.find((o) => o.id === light.openingIds[0]);
       if (first) return out.copy(first.center);
@@ -1016,7 +1593,7 @@ export class SceneStage {
         }
         const wall = this.before?.walls.find((w) => w.id === id);
         if (!wall) return false;
-        const surface = this.options.scene.surfaces.find((s) => s.id === id);
+        const surface = this.current.surfaces.find((s) => s.id === id);
         if (surface?.kind !== "wall") return false;
         // Mid-height, below the openings' labels, and off-centre so a wall's
         // label does not sit on the same vertical as a centred opening.
@@ -1031,7 +1608,7 @@ export class SceneStage {
         return true;
       }
       case "light": {
-        const light = this.options.scene.lights.find((l) => l.id === id);
+        const light = this.current.lights.find((l) => l.id === id);
         if (!light) return false;
         if (light.kind === "artificial") {
           const lamp = this.lamps.find((l) => l.fixture.source.id === light.fixtureId && l.fixture.variant !== Variant.after);
@@ -1054,10 +1631,10 @@ export class SceneStage {
         return true;
       }
       case "relation": {
-        const rel = this.options.scene.relationships.find((r) => r.id === id);
+        const rel = this.current.relationships.find((r) => r.id === id);
         if (!rel) return false;
-        const a = this.entityPoint(rel.subjectId, new Vector3());
-        const b = this.entityPoint(rel.objectId, new Vector3(), a);
+        const a = this.entityPoint(rel.subjectId, this.tmp3);
+        const b = this.entityPoint(rel.objectId, this.tmp4, a);
         out.addVectors(a, b).multiplyScalar(0.5);
         return true;
       }
@@ -1096,9 +1673,14 @@ export class SceneStage {
       if (!this.resolveAnchor(anchor.key, p)) continue;
       p.project(this.camera);
       const visible = p.z < 1 && p.z > -1 && Math.abs(p.x) < 1.2 && Math.abs(p.y) < 1.2;
-      const x = ((p.x + 1) / 2) * w;
-      const y = ((1 - p.y) / 2) * h;
-      anchor.element.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      const x = Math.round(((p.x + 1) / 2) * w * 10) / 10;
+      const y = Math.round(((1 - p.y) / 2) * h * 10) / 10;
+      const written = anchor.written;
+      if (written.x !== x || written.y !== y) {
+        written.x = x;
+        written.y = y;
+        anchor.element.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      }
 
       // The frustum test above keeps a little slack past each edge so that a
       // pin crossing the boundary does not pop. A tag, though, hangs off its
@@ -1183,20 +1765,31 @@ export class SceneStage {
       if (anchor.minor) return false;
       lead = LEAD_MAX;
     }
+    // A tag that would hang above the top of the stage, or under the page's
+    // navigation there, cannot be read, and its pin alone says nothing.
+    if (y - lead - 4 - th < TOP_CLEARANCE) return false;
 
-    if (best.flip) anchor.element.setAttribute("data-flip", "");
-    else anchor.element.removeAttribute("data-flip");
+    const written = anchor.written;
+    if (written.flip !== best.flip) {
+      written.flip = best.flip;
+      if (best.flip) anchor.element.setAttribute("data-flip", "");
+      else anchor.element.removeAttribute("data-flip");
+    }
 
     box.x0 = best.edge;
     box.x1 = best.edge + tw;
     box.y1 = y - lead - 4;
     box.y0 = box.y1 - th;
-    anchor.element.style.setProperty("--lead", `${Math.round(lead)}px`);
-    // A tag raised past a neighbour draws its leader across that neighbour.
-    // Ordering by leader length puts the longer leaders behind, where the
-    // tags' own backgrounds cover them, so the crossing never shows. Tags
-    // themselves no longer overlap, so nothing is hidden by this.
-    anchor.element.style.zIndex = String(LEAD_MAX - Math.round(lead));
+    const rounded = Math.round(lead);
+    if (written.lead !== rounded) {
+      written.lead = rounded;
+      anchor.element.style.setProperty("--lead", `${rounded}px`);
+      // A tag raised past a neighbour draws its leader across that neighbour.
+      // Ordering by leader length puts the longer leaders behind, where the
+      // tags' own backgrounds cover them, so the crossing never shows. Tags
+      // themselves no longer overlap, so nothing is hidden by this.
+      anchor.element.style.zIndex = String(LEAD_MAX - rounded);
+    }
     this.placed.push(anchor);
     return true;
   }
@@ -1208,11 +1801,43 @@ export class SceneStage {
   };
 }
 
+/** The object group an intersected mesh belongs to, if any. */
+function objectIdOf(hit: Object3D): Id | null {
+  for (let node: Object3D | null = hit; node; node = node.parent) {
+    if (node.name.startsWith("object:")) return node.name.slice(7);
+  }
+  return null;
+}
+
+/**
+ * Whether a changed object needs new geometry rather than a new transform.
+ * Position, rotation, scale and materials are all applied to the existing
+ * build; what the object *is* is baked into it.
+ */
+function rebuildNeeded(a: SceneObject, b: SceneObject) {
+  return (
+    a.category !== b.category ||
+    a.form !== b.form ||
+    a.dimensions[0] !== b.dimensions[0] ||
+    a.dimensions[1] !== b.dimensions[1] ||
+    a.dimensions[2] !== b.dimensions[2] ||
+    Object.keys(a.materials).length !== Object.keys(b.materials).length
+  );
+}
+
 const INK = new Color("#191816");
+
+/** A typical frame slower than this means the device needs fewer pixels. */
+const SLOW_FRAME_MS = 22;
+/** Most depth texels recorded for the photograph, and the largest edge. */
+const PHOTO_DEPTH_BUDGET = 6.5e6;
+const MAX_TEXTURE_EDGE = 4096;
+/** Scratch for `shadowsChanged`, so the check allocates nothing. */
+const SHADOW_VALUES = new Float64Array(9);
 const DEPTH_FAR = new Color("#5e5953");
 
 function materialsOf(op: SceneOperation): SceneMaterial[] {
-  return op.kind === "restyle" ? [op.to] : [];
+  return op.kind === "restyle" || op.kind === "resurface" ? [op.to] : [];
 }
 
 function lerpAngle(a: number, b: number, t: number) {

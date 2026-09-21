@@ -22,6 +22,14 @@ export interface ViewState {
   };
   /** 1 = composed inside the hero frame like a print, 0 = full bleed. */
   frame: number;
+  /**
+   * 1 = the room as the photograph knows it: every surface the capture
+   * camera saw is shown, and everything it never saw (behind furniture,
+   * outside the frame) is left blank, wherever the camera has since moved.
+   * At the capture viewpoint that is the whole picture. 0 = the full model.
+   * Needs `StageOptions.photograph`.
+   */
+  photo: number;
 
   // Understanding layers ----------------------------------------------------
   /** Depth map overlay strength. */
@@ -41,6 +49,12 @@ export interface ViewState {
   separate: number;
   /** 3D bounding-box brackets around objects. */
   boxes: number;
+  /**
+   * How strongly the pointer picks an object out. 0 leaves hovering with
+   * no effect of its own, which is what the story wants until the room
+   * becomes something to touch; the editor holds it at 1 throughout.
+   */
+  hover: number;
   /** Per-material-class reveal from clay back to material, 0..1. */
   reveal: Record<RevealGroup, number>;
   /** Room corner occlusion. */
@@ -104,6 +118,7 @@ export function createViewState(camera: ViewState["camera"]): ViewState {
   return {
     camera: { ...camera },
     frame: 1,
+    photo: 0,
     depth: 0,
     depthFront: 0,
     clay: 0,
@@ -113,6 +128,7 @@ export function createViewState(camera: ViewState["camera"]): ViewState {
     dimObjects: 0,
     separate: 0,
     boxes: 0,
+    hover: 0,
     reveal: { wood: 0, fabric: 0, stone: 0, glass: 0, metal: 0, leather: 0, paint: 0, other: 0 },
     occlusion: 1,
     time: 0.18,
@@ -127,4 +143,17 @@ export function createViewState(camera: ViewState["camera"]): ViewState {
     wave: 0,
     waveLine: 0,
   };
+}
+
+/**
+ * Overwrite `target` with `source`, keeping `target`'s nested objects. A
+ * timeline holds references to `camera` and `reveal`, so they are filled in
+ * place rather than replaced.
+ */
+export function copyViewState(target: ViewState, source: ViewState) {
+  const { camera, reveal, ...rest } = source;
+  Object.assign(target, rest);
+  Object.assign(target.camera, camera);
+  Object.assign(target.reveal, reveal);
+  return target;
 }

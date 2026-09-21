@@ -1,7 +1,6 @@
 import type { RefObject } from "react";
-import { ButtonLink } from "@/components/Button";
 import { StatusState } from "@/components/StatusState";
-import { anchors, routes } from "@/config/site";
+import { anchors } from "@/config/site";
 import { RoomWireframe } from "./RoomWireframe";
 import styles from "./HeroLayer.module.css";
 
@@ -31,6 +30,11 @@ interface HeroLayerProps {
   error?: StageError;
 }
 
+/**
+ * The cover is a photograph and one sentence. The picture is held in a
+ * paper margin, like a print; scrolling dissolves the margin and the
+ * picture starts to become a room.
+ */
 export function HeroLayer({ frameRef, loaderBarRef, status, error = "webgl" }: HeroLayerProps) {
   return (
     <div className={styles.hero}>
@@ -50,38 +54,29 @@ export function HeroLayer({ frameRef, loaderBarRef, status, error = "webgl" }: H
         {status === "error" && (
           <StatusState compact status="error" {...errorCopy[error]} className={styles.error} />
         )}
-        <p className={styles.caption} data-hero-caption>
-          <span>Fig. 01</span>
-          <span>A living room, photographed. Demonstration scene.</span>
-        </p>
       </div>
 
-      <div className={styles.title} data-hero-copy>
+      <div className={styles.copy} data-hero-copy>
         <h1 className={styles.heading}>
+          <span className={styles.eyebrow}>Your space</span>{" "}
           <span className={styles.line}>
-            <span>Reimagine</span>
-          </span>
+            <span>isn’t just</span>
+          </span>{" "}
           <span className={styles.line}>
-            <span>your space.</span>
+            <span>an image.</span>
           </span>
         </h1>
       </div>
 
-      <p className={styles.lede} data-hero-copy>
-        One photograph becomes an editable 3D model of your room: its walls, furniture, materials and
-        light.
-      </p>
-
-      <div className={styles.actions} data-hero-copy>
-        <ButtonLink href={routes.workspace} size="l" arrow>
-          Try it now
-        </ButtonLink>
-        <a className={styles.cue} href={`#${anchors.sequence}`}>
-          <span>Scroll to explore</span>
-          <svg viewBox="0 0 10 16" aria-hidden="true" focusable="false">
-            <path d="M5 0v14.5M1 10.5l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.25" />
-          </svg>
+      <div className={styles.margin}>
+        <a className={styles.cue} href={`#${anchors.sequence}`} data-hero-copy>
+          <span className={styles.cueLine} aria-hidden="true" />
+          <span>Scroll</span>
         </a>
+        <p className={styles.caption} data-hero-caption>
+          <span>Fig. 01</span>
+          <span>A living room, photographed. Demonstration scene.</span>
+        </p>
       </div>
     </div>
   );

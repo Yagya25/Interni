@@ -1,0 +1,60 @@
+.cluster {
+  position: absolute;
+  right: calc(var(--stage-inset-right, 0px) + var(--space-4));
+  bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.group {
+  display: flex;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+}
+
+.control {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--ink-2);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.control + .control {
+  border-left: 1px solid var(--rule);
+}
+
+.control svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.control:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.control:disabled {
+  color: var(--stone-3);
+  cursor: default;
+}
+
+@media (max-width: 40rem) {
+  .cluster {
+    right: var(--space-3);
+    bottom: var(--space-3);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100% - var(--space-6));
+    gap: var(--space-2);
+  }
+
+  .control {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}

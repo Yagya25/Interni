@@ -1,0 +1,457 @@
+/* The door into the product. Editorial like the landing page, but already
+   behaving like an instrument: measured, quiet, nothing decorative. */
+
+.entry {
+  display: grid;
+  gap: var(--space-7);
+  padding: var(--space-7) 0 var(--space-8);
+}
+
+.head {
+  max-width: 44rem;
+}
+
+/* Beside a held photograph the heading is set a step smaller. */
+.aside .title {
+  font-size: clamp(2rem, 1.4rem + 1.6vw, 3rem);
+}
+
+.entry[data-held] {
+  padding-top: 0;
+}
+
+.title {
+  margin-top: var(--space-3);
+}
+
+.lede {
+  margin-top: var(--space-4);
+  max-width: 38rem;
+}
+
+/* Choosing ---------------------------------------------------------------- */
+
+.choose {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 44rem;
+}
+
+.drop {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-5);
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-raised);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
+}
+
+.drop:hover,
+.drop:focus-within {
+  border-color: var(--ink);
+}
+
+.drop[data-over] {
+  border-color: var(--signal);
+  background: var(--stone-1);
+}
+
+.drop[data-busy] {
+  cursor: progress;
+}
+
+.input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.input:focus-visible {
+  outline: none;
+}
+
+.dropMark {
+  color: var(--stone-3);
+}
+
+.dropMark svg {
+  width: 3rem;
+  height: 2.25rem;
+}
+
+.dropTitle {
+  margin-top: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-body-l);
+  color: var(--ink);
+}
+
+.dropOr {
+  font-size: var(--text-small);
+  color: var(--ink-3);
+}
+
+.dropFormats {
+  margin-top: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.12em;
+  color: var(--stone-3);
+}
+
+.problem {
+  padding: var(--space-3) var(--space-4);
+  border-left: 2px solid var(--signal);
+  background: var(--paper-raised);
+}
+
+.problemTitle {
+  font-size: var(--text-body);
+  color: var(--ink);
+}
+
+.problemDetail {
+  margin-top: 0.15rem;
+  font-size: var(--text-small);
+  color: var(--ink-3);
+}
+
+.alternative {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+}
+
+.rule {
+  width: 100%;
+  height: 1px;
+  background: var(--rule);
+}
+
+/* Held -------------------------------------------------------------------- */
+
+/* Where a held photograph stands: ready for a pipeline that is not there. */
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin-top: var(--space-5);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.statusMark {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+  background: var(--ink);
+}
+
+.statusNote {
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--signal);
+}
+
+.held {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+/* The photograph is the largest thing on the page, shown whole: a
+   portrait image is held to the screen's height, never cropped. */
+.plate {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-raised);
+}
+
+.image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(78vh, 56rem);
+  object-fit: contain;
+  background: var(--stone-1);
+}
+
+.caption {
+  justify-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0 0.25rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--ink-3);
+}
+
+.caption span:first-child {
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.caption span:last-child {
+  margin-left: auto;
+}
+
+.block {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.blockTitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.offline {
+  letter-spacing: 0.06em;
+  color: var(--signal);
+}
+
+/* The pipeline, stage by stage: one done, the rest waiting on a
+   connection that does not exist yet. */
+.pipeline {
+  display: grid;
+  counter-reset: stage;
+}
+
+.pipeline li {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--text-small);
+  line-height: 1.4;
+  color: var(--ink-3);
+  counter-increment: stage;
+}
+
+.pipeline li::before {
+  content: counter(stage, decimal-leading-zero);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--stone-3);
+}
+
+.pipeline li::after {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.04em;
+  color: var(--stone-3);
+}
+
+.pipeline li[data-state="done"] {
+  color: var(--ink);
+}
+
+.pipeline li[data-state="done"]::after {
+  content: "Done";
+  color: var(--ink);
+}
+
+.pipeline li[data-state="now"]::after {
+  content: "Reading";
+  color: var(--signal);
+}
+
+.pipeline li[data-state="waiting"]::after {
+  content: "Not connected";
+}
+
+.reconstruct {
+  justify-self: start;
+  margin-top: var(--space-2);
+}
+
+.replace {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: linear-gradient(currentColor, currentColor) left calc(50% + 0.8em) / 100% 1px no-repeat;
+  cursor: pointer;
+}
+
+.replace:focus-within {
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+}
+
+/* The way to the demonstration room, kept apart from the person's own. */
+.elsewhere {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  max-width: 44rem;
+}
+
+/* What was actually read off the image ------------------------------------ */
+
+.steps {
+  display: grid;
+  gap: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}
+
+.steps li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--stone-3);
+  transition: color var(--duration-base) var(--ease-out);
+}
+
+.steps li::before {
+  content: "";
+  width: 0.5rem;
+  height: 1px;
+  flex: none;
+  background: currentColor;
+  transform: translateY(-0.25rem);
+}
+
+.steps li[data-state="done"] {
+  color: var(--ink-3);
+}
+
+.steps li[data-state="now"] {
+  color: var(--ink);
+}
+
+.steps li[data-state="now"]::before {
+  width: 1.25rem;
+  background: var(--signal);
+}
+
+.tones {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.tonesLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.swatches {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  height: 2.5rem;
+  border: 1px solid var(--rule-strong);
+}
+
+.swatches li + li {
+  border-left: 1px solid var(--rule);
+}
+
+.aside {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.facts {
+  border-top: 1px solid var(--rule);
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.facts dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.facts dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.honest {
+  font-size: var(--text-small);
+  line-height: 1.5;
+  color: var(--ink-3);
+  border-left: 1px solid var(--rule-strong);
+  padding-left: var(--space-3);
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+@media (max-width: 52rem) {
+  .entry {
+    gap: var(--space-6);
+    padding: var(--space-6) 0 var(--space-7);
+  }
+
+  .held {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+
+  .drop {
+    padding: var(--space-6) var(--space-4);
+  }
+}

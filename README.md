@@ -2,9 +2,11 @@
 
 A photograph of a room, turned into a model you can redesign.
 
-This repository holds the foundation, the landing page, and the scroll-driven
-demonstration of the product. Reconstruction, the editor and AI redesign come
-in later phases; the code is structured so they slot in without rewrites.
+This repository holds the foundation, the landing page, and the workspace:
+the room as an editable model, with selection, transforms, materials,
+lighting, history and a command surface. Reconstruction from a real
+photograph, and the model that reads a sentence as a change, come next; both
+have integration boundaries waiting for them.
 
 > "Datum" is a working name, set in `src/config/site.ts`.
 
@@ -29,8 +31,9 @@ when neither is available, rather than quietly publishing localhost URLs.
 
 ```
 src/
-  app/                    Routes: / (landing), /workspace (placeholder), 404,
-                          error boundary, icons, Open Graph image, robots, sitemap
+  app/                    Routes: / (landing), /workspace (entry),
+                          /workspace/demo (the workspace), 404, error
+                          boundary, icons, Open Graph image, robots, sitemap
   config/site.ts          Product name, copy, routes, in-page anchors
   components/             Shared primitives: Text, Button, Container,
                           StatusState (loading / error / empty / success),
@@ -46,6 +49,16 @@ src/
                           its redesign, the edit operations, material callouts
   features/landing/       The landing page: navigation, footer, and the
                           scroll sequence (chapters, shots, timeline, layers)
+  features/workspace/     The product: the shell, the viewport, the tool
+                          panels, the inspector, the command surface
+    state/                Document, history, and the intents that produce
+                          scene operations
+    scene/                The bridge to SceneStage: mounting, the camera
+                          rig, pointer gestures, dragging
+    ai/                   The interpreter boundary, and the rule-based reader
+                          behind it (normalises wording; not a language model)
+    assets/               What a replacement can be fulfilled with: today,
+                          the forms the renderer has builders for
 ```
 
 ## How the landing page works
@@ -57,6 +70,14 @@ src/
   (`scene/render/viewState.ts`). `SceneStage` renders a frame as a pure
   function of that object, on demand, so scrolling forwards, backwards,
   jumping, or refreshing mid-page always yields a coherent frame.
+- **The photograph opens up.** The stage records the depth its capture
+  camera can see (`StageOptions.photograph`), and each vertex carries where
+  it sat in that view (`PHOTO_ATTRIBUTE`). With `view.photo` on, whatever the
+  photograph saw is drawn and whatever it never saw — behind the sofa, the
+  wall outside the frame — is left blank and hatched, wherever the camera
+  goes. Walls pulled apart and furniture lifted out keep that knowledge with
+  them. The surfaces are rendered rather than textured with the picture's
+  own pixels, so they stay sharp when the camera moves in.
 - **No React re-renders while scrolling.** Only chapter changes (a dozen per
   visit) touch React state. Progress bars and 3D-anchored labels are written
   straight to the DOM.
@@ -68,6 +89,43 @@ src/
 - **Honest data.** Every number on screen is derived from the demo scene via
   `summarizeScene`. The scene is labelled as a demonstration wherever it is
   shown.
+
+## How the workspace works
+
+- **The scene is the document.** Every change — dragged, typed into a field,
+  or one day written as a sentence — becomes a `SceneOperation` applied to
+  the scene (`scene/model/operations.ts`). Nothing mutates a mesh. An
+  operation that asks for what is already true returns the same scene, so a
+  drag held against a wall costs nothing and leaves no history.
+- **History is operations, not snapshots.** Each entry records the
+  operations and the inverses read from the scene *before* they ran, so undo
+  reverses what happened rather than reloading. Continuous gestures share a
+  merge key and collapse into one step. Some acts are several operations:
+  moving or turning a table moves what stands on it (`moveWithLoad`),
+  removing it removes them, and one undo brings the stack back together.
+- **The renderer is told, not asked.** `SceneStage.syncScene` diffs the new
+  scene against the old, mostly by reference — an operation shares
+  everything it did not touch — and updates transforms, materials and lights
+  in place. Only a change to what an object *is* costs a rebuild. The store
+  is subscribed to outside React, so editing the room re-renders no
+  components.
+- **The camera is view state, not document state.** `CameraRig` writes into
+  the same `ViewState` the landing page's timeline writes into, within
+  limits that keep the view inside the room it is looking at.
+- **Commands are operations too.** The command bar sends to a
+  `CommandInterpreter`. The one connected is rule-based: it normalises
+  wording and synonyms (`ai/demo/vocabulary.ts`), reads a structured
+  `CommandIntent` (intent, target, action, parameters, confidence,
+  clarification), resolves the target against the scene, and builds the same
+  operations a hand would, shown as a proposal to apply or discard. A name
+  that fits two pieces, or "this" with nothing selected, is asked about rather
+  than guessed. A replacement is fulfilled only when a builder draws the form
+  asked for (`assets/catalogue.ts`); otherwise the request is shown, as
+  understood, with no operation behind it. A language model replaces the
+  reader behind the same interface.
+- **Nothing pretends.** Uploading a photograph reads, decodes and measures it
+  in the browser, keeps it on screen, and stops at the reconstruction
+  boundary. The demonstration room is only ever opened on request.
 
 ## Replacing the demo with real reconstruction
 

@@ -238,6 +238,11 @@ interface LightBase {
 export interface DaylightSource extends LightBase {
   kind: "daylight";
   openingIds: readonly Id[];
+  /**
+   * The hour the room's daylight is set to, 0 = midday through 1 = evening.
+   * Reconstruction estimates it from the photograph; an editor may change it.
+   */
+  timeOfDay?: number;
 }
 
 export interface AmbientLight extends LightBase {
@@ -252,6 +257,10 @@ export interface ArtificialLight extends LightBase {
   /** Position of the emitter relative to the fixture's origin. */
   emitterOffset: Vec3;
   colorTemperature: number;
+  /** Output relative to the fixture's estimated output. Defaults to 1. */
+  intensity?: number;
+  /** Switched by hand. Undefined leaves the fixture following the daylight. */
+  on?: boolean;
 }
 
 export type Light = DaylightSource | AmbientLight | ArtificialLight;

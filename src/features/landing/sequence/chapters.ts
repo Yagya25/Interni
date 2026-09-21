@@ -5,6 +5,9 @@ import { demo } from "@/demo";
  * timeline in abstract units; `settle` is the fraction of the span at which
  * everything in the chapter is fully shown (used for reduced motion and
  * chapter navigation).
+ *
+ * Each chapter says one thing. `title` is the statement set large over the
+ * room; `body` is a single supporting line.
  */
 export interface Chapter {
   id: ChapterId;
@@ -23,9 +26,9 @@ export type ChapterId =
   | "objects"
   | "materials"
   | "light"
-  | "edit"
   | "space"
   | "understanding"
+  | "edit"
   | "reimagine";
 
 const { summary } = demo;
@@ -35,26 +38,26 @@ export const chapters: readonly Chapter[] = [
     id: "photo",
     index: "01",
     label: "Photograph",
-    title: "Start with a photo.",
-    body: "One ordinary picture of a room. No scanner, no tape measure.",
-    span: 8,
-    settle: 0.5,
+    title: "We turn it into something AI can understand.",
+    body: "One ordinary photograph. No scanner, no tape measure.",
+    span: 10,
+    settle: 0.45,
   },
   {
     id: "depth",
     index: "02",
     label: "Depth",
-    title: "We see depth.",
-    body: "Every point gets a distance from the camera. A line for each quarter metre.",
+    title: "Depth.",
+    body: "Every point in the picture gets a distance. A line for each quarter metre.",
     span: 12,
-    settle: 0.72,
+    settle: 0.7,
   },
   {
     id: "structure",
     index: "03",
     label: "Structure",
-    title: "The room becomes structure.",
-    body: "Walls, floor, ceiling, windows and door, pulled apart the way an architect would draw them.",
+    title: "Structure.",
+    body: "Walls, floor, ceiling and openings, each pulled free as its own surface.",
     span: 14,
     settle: 0.62,
   },
@@ -62,55 +65,55 @@ export const chapters: readonly Chapter[] = [
     id: "objects",
     index: "04",
     label: "Objects",
-    title: "Then everything in it.",
-    body: `${summary.objects} objects, each with a position, a footprint and a size.`,
-    span: 12,
+    title: "Objects.",
+    body: `${summary.objects} pieces, lifted out of the picture. The blanks are what the camera never saw.`,
+    span: 13,
     settle: 0.55,
   },
   {
     id: "materials",
     index: "05",
     label: "Materials",
-    title: "Materials become editable.",
+    title: "Materials.",
     body: "Oak, linen, marble, glass, steel, leather, paint. Each surface knows what it is made of.",
     span: 12,
-    settle: 0.78,
+    settle: 0.8,
   },
   {
     id: "light",
     index: "06",
     label: "Light",
-    title: "Light becomes a system.",
-    body: "Window light, ambient light and two lamps, each its own source. Change the hour and the room follows.",
+    title: "Light.",
+    body: "Daylight through two windows, two lamps, the sky. Change the hour and the room follows.",
     span: 14,
     settle: 0.45,
   },
   {
-    id: "edit",
-    index: "07",
-    label: "Edit",
-    title: "Now it can change.",
-    body: "Move the table. Swap the chair. Reupholster the sofa. Bring the afternoon back.",
-    span: 16,
-    settle: 0.95,
-  },
-  {
     id: "space",
-    index: "08",
+    index: "07",
     label: "Space",
-    title: "From image to space.",
-    body: "The photograph was one point of view. The model is the whole room.",
-    span: 12,
-    settle: 0.7,
+    title: "A place, not a picture.",
+    body: "The photograph had one point of view. The model has all of them.",
+    span: 15,
+    settle: 0.5,
   },
   {
     id: "understanding",
-    index: "09",
+    index: "08",
     label: "Understanding",
     title: "What it understands.",
-    body: "Everything the model holds about this room, in one place.",
+    body: "Measured, named and related: everything the model holds about this room.",
     span: 12,
-    settle: 0.62,
+    settle: 0.6,
+  },
+  {
+    id: "edit",
+    index: "09",
+    label: "Edit",
+    title: "Now it’s editable.",
+    body: "Move the table. Swap the chair. Reupholster the sofa. Change the hour.",
+    span: 16,
+    settle: 0.95,
   },
   {
     id: "reimagine",
@@ -125,7 +128,7 @@ export const chapters: readonly Chapter[] = [
 
 /** Hero → first chapter, and the closing moment after the last. */
 export const INTRO_SPAN = 6;
-export const OUTRO_SPAN = 13;
+export const OUTRO_SPAN = 12;
 
 export interface ChapterTiming {
   start: number;
@@ -153,7 +156,7 @@ export const TOTAL_SPAN = OUTRO_START + OUTRO_SPAN;
 export const OUTRO_SETTLE = OUTRO_START + OUTRO_SPAN * 0.72;
 
 /** Scroll distance per timeline unit, in viewport heights. */
-export const VH_PER_UNIT = 8.5;
+export const VH_PER_UNIT = 7.5;
 
 export const chapterAt = (time: number): number => {
   if (time < INTRO_SPAN * 0.6) return -1;

@@ -18,6 +18,13 @@ interface Options {
   portrait: boolean;
 }
 
+/**
+ * How long the film takes to catch up with the scroll. Enough to turn the
+ * steps of a mouse wheel into continuous motion; short enough that the room
+ * visibly answers the hand rather than drifting on after it stops.
+ */
+const SCRUB_SECONDS = 0.35;
+
 /** The settled moment of whichever chapter a timeline time falls in. */
 function settledTime(time: number) {
   if (time >= OUTRO_START) return OUTRO_SETTLE;
@@ -65,7 +72,7 @@ export function useSequenceTimeline({ section, root, view, stage, reducedMotion,
             }
           : {
               animation: tl,
-              scrub: 0.9,
+              scrub: SCRUB_SECONDS,
               onUpdate: (self: ScrollTrigger) => sequenceStore.setProgress(self.progress),
             }),
       });

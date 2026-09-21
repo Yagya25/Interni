@@ -1,0 +1,99 @@
+/* ==========================================================================
+   The workspace is one screen: it never scrolls, and the room takes every
+   pixel the instruments do not need. Tool panels are in the layout rather
+   than floating over the room, so opening one never hides the room.
+
+   The inspector is the exception. It answers a click in the room, so on a
+   wide screen it is laid over the room's right edge instead of taking a
+   column: selecting a piece must not resize the canvas and move that piece
+   out from under the pointer that is about to drag or turn it.
+   ========================================================================== */
+
+.shell {
+  --rail-size: 4.25rem;
+  --top-height: 3.25rem;
+
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "top     top      top      top"
+    "rail    panel    stage    inspector"
+    "rail    command  command  command";
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.shell > [data-region="top"] {
+  grid-area: top;
+}
+
+.shell > [data-region="rail"] {
+  grid-area: rail;
+}
+
+.shell > [data-region="panel"] {
+  grid-area: panel;
+}
+
+.shell > [data-region="inspector"] {
+  grid-area: stage;
+  justify-self: end;
+  z-index: 2;
+}
+
+/* What sits against the room's right edge steps clear of the inspector. */
+.shell[data-inspecting] {
+  --stage-inset-right: 20rem;
+}
+
+.shell > [data-region="command"] {
+  grid-area: command;
+}
+
+.stage {
+  grid-area: stage;
+  position: relative;
+  /* One row that fills the cell, so the canvas always has a height to take. */
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Narrow screens get a different instrument, not a smaller one: the rail
+   moves to the thumb, panels arrive as sheets over the room, and the room
+   itself keeps the whole screen.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 60rem) {
+  .shell {
+    --rail-size: 3.75rem;
+    --top-height: 3rem;
+
+    grid-template-columns: minmax(0, 1fr);
+    /* The room keeps a third of the screen however many sheets are open. */
+    grid-template-rows: auto minmax(30dvh, 1fr) auto auto auto;
+    grid-template-areas:
+      "top"
+      "stage"
+      "panel"
+      "inspector"
+      "command";
+    /* The rail is fixed to the bottom edge, so the grid stops short of it. */
+    padding-bottom: calc(var(--rail-size) + env(safe-area-inset-bottom));
+  }
+
+  /* A phone has no room to lay a panel over: the inspector is a sheet
+     under the room, like the tool panels. */
+  .shell > [data-region="inspector"] {
+    grid-area: inspector;
+    justify-self: stretch;
+  }
+
+  .shell[data-inspecting] {
+    --stage-inset-right: 0px;
+  }
+}

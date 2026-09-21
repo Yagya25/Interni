@@ -1,0 +1,252 @@
+/* Laid over the room's bottom edge, above the command line it answers. */
+
+.card,
+.receipt {
+  position: absolute;
+  /* Centred on the part of the room the inspector leaves in view. */
+  left: calc((100% - var(--stage-inset-right, 0px)) / 2);
+  bottom: var(--space-4);
+  transform: translateX(-50%);
+  width: min(34rem, calc(100% - var(--stage-inset-right, 0px) - var(--space-6)));
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-raised);
+}
+
+.head {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.kicker {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+/* What the interpreter did with the words: understood, limited, applied. */
+.state {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.state::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  background: var(--signal);
+}
+
+.state[data-tone="limited"]::before {
+  background: transparent;
+  outline: 1px solid var(--signal);
+  outline-offset: -1px;
+}
+
+.state[data-tone="done"]::before {
+  background: var(--ink);
+}
+
+.command {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--ink-3);
+}
+
+.command::before {
+  content: "\201C";
+}
+
+.command::after {
+  content: "\201D";
+}
+
+.summary {
+  margin-top: var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.changes {
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.group + .group {
+  border-top: 1px solid var(--rule);
+}
+
+.groupTitle {
+  padding: var(--space-2) var(--space-4) 0.1rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.change {
+  display: grid;
+  grid-template-columns: auto 7rem 1fr;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: 0.4rem var(--space-4);
+  cursor: pointer;
+}
+
+.change:hover {
+  background: var(--stone-1);
+}
+
+.tick {
+  width: 0.8rem;
+  height: 0.8rem;
+  accent-color: var(--ink);
+  align-self: center;
+}
+
+.changeTarget {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.changeDetail {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.changeDetail::before {
+  content: "+ ";
+  color: var(--signal);
+}
+
+/* A request read but not yet possible, stated field by field. */
+.request {
+  display: grid;
+  padding: var(--space-2) var(--space-4);
+}
+
+.request > div {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.request dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.request dd {
+  margin: 0;
+  font-size: var(--text-small);
+  color: var(--ink);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--rule);
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  color: var(--ink-3);
+}
+
+.limit {
+  font-size: var(--text-small);
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.discard,
+.apply,
+.undo {
+  flex: none;
+  min-height: 2rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--rule-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.discard,
+.undo {
+  color: var(--ink-2);
+}
+
+.discard:hover,
+.undo:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.apply {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.apply:hover:not(:disabled) {
+  background: var(--signal);
+  border-color: var(--signal);
+}
+
+.apply:disabled {
+  background: var(--stone-1);
+  border-color: var(--rule);
+  color: var(--stone-3);
+  cursor: default;
+}
+
+/* After Apply: one line, then gone. */
+.receipt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+}
+
+.receiptText {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}

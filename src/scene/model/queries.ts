@@ -84,3 +84,14 @@ export function objectCenter(object: SceneObject): Vec3 {
   const [x, y, z] = object.transform.position;
   return [x, y + (object.dimensions[1] * object.transform.scale[1]) / 2, z];
 }
+
+/**
+ * Radius of the circle that contains an object's plan footprint, scale
+ * included. The editor draws its rotation ring on this, so the ring is
+ * always just clear of the piece it turns.
+ */
+export function footprintRadius(object: SceneObject): number {
+  const [w, , d] = object.dimensions;
+  const [sx, , sz] = object.transform.scale;
+  return Math.hypot(w * sx, d * sz) / 2;
+}
