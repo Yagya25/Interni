@@ -1,0 +1,547 @@
+# Current state, after Phase 3E
+
+What is actually implemented, as of 22 September 2026. Nothing here is planned
+work: every claim is read from the code in this repository and from the
+reconstruction worker in WSL. The design document for where this is going is
+`docs/reconstruction-architecture.md`; this file is the inventory.
+
+Repository: branch `landing-workspace-refinement`, HEAD `2162777`. Everything
+from the reconstruction compiler onwards (`src/scene/compile/`,
+`src/features/workspace/ai/`, the reconstruction pages and routes) is present
+in the working tree and **not committed**.
+
+Stack: Next.js 16.3.5 (App Router), React 19.2.8, three 0.186, TypeScript 5,
+vitest 4.1.11. The reconstruction worker is a separate Python 3.12 package in
+WSL, not part of this repository.
+
+---
+
+## 1. Reconstruction pipeline (the worker)
+
+`~/datum-recon` in WSL (`wsl -d Ubuntu`, user `datum`) — package
+`datum-reconstruction` 0.1.0, ~3,200 lines of `reconstruction/*.py` plus
+~560 lines of tests. It takes one photograph and writes what it **observed**;
+it never writes a Scene and never decides what the room is.
+
+Stages, as the worker records them (`reconstruction/worker.py`):
+
+| Stage | What runs |
+| --- | --- |
+| S0 intake | EXIF orientation applied, metadata stripped, long edge ≤ 1600 px |
+| S1 camera | GeoCalib pinhole: intrinsics, roll, pitch, gravity, vertical FOV |
+| S2 geometry | MoGe-2 ViT-L normal: metric points, normals, validity |
+| S4 layout | plane fitting (floor / ceiling / wall / other), deterministic |
+| S3 detection | Grounding DINO boxes, SAM 2.1 masks |
+| S5 objects | per-instance geometry: visible boxes, yaw candidates, wall contact |
+| S6 appearance and light | SigLIP 2 zero-shot material class per region; colour, palette, rectified-plane texture, floor reflections; light colour, shading direction, gradient, daylight through openings, sun patches, lamp emission, exposure |
+
+Every model is pinned by repository revision and weight SHA-256, loaded from
+`weights/`, one at a time, fp16; nothing is fetched at run time. A stage that
+is turned off is recorded as `skipped`, never faked.
+
+Output per run, in `runs/<UTC timestamp>-<sha8>/`: `reconstruction.json` (the
+intermediate), `source.jpg`, `depth.png`, `normals.png`, `valid-mask.png`,
+`planes.png`, two previews, `instances.json`, `worker.log`. A run directory is
+never overwritten. `python -m reconstruction.calibrate` writes a
+`calibration.json` beside it — a real measurement, applied later by the
+compiler, with no model re-run.
+
+The contract between worker and app is `ReconstructionIntermediate` v1,
+mirrored in TypeScript at `src/scene/compile/intermediate.ts`, with
+`parseIntermediate()` refusing anything malformed by field name and refusing
+an unknown `schemaVersion` outright.
+
+## 2. Scene model
+
+`src/scene/model/types.ts` — the single source of truth for a room. Metres,
+right-handed, +Y up, floor at y = 0, radians, sRGB hex, stable ids.
+
+`Scene` = `provenance` + `room` (type, label, footprint, height) + `camera`
+(the estimated capture pose) + `surfaces` + `openings` + `objects` +
+`materials` + `lights` + `relationships`.
+
+- `SceneProvenance` is `demo` or `reconstruction` (source image id, pipeline
+  version, created-at). The UI labels scenes from it.
+- `Surface` is a floor/ceiling plane or a wall (start, end, thickness), each
+  with `evidence: "observed" | "inferred"`.
+- `SceneObject`: category (26 categories), label, transform, dimensions,
+  named material slots, `support` (floor / wall / ceiling / object), optional
+  `form` and `metadata`.
+- `Light` is `daylight` (opening ids, optional `timeOfDay`, optional
+  `direct`), `ambient`, or `artificial` (fixture id, emitter offset, colour
+  temperature, optional intensity and switch).
+- `Relationship`: subject, predicate (`faces`, `beside`, `in-front-of`, `on`,
+  `under`, `above`, `against`, `lit-by`, `opposite`), object.
+
+Helpers: `queries.ts` (room bounds, walls, wall frames, opening centres, used
+material ids, object centre/radius), `summary.ts` (`summarizeScene` for the
+title block), `editing.ts`, and `operations.ts` (below).
+
+## 3. Compiler (`src/scene/compile/`)
+
+`compileRoomShell(intermediate, { calibration, objects })` →
+`{ scene, evidence, report }` or a named problem. Pure and deterministic: the
+same intermediate always gives the same Scene, byte for byte; every length is
+rounded to the millimetre. `COMPILER_VERSION = "room-shell-0.2.0"`,
+`PRIORS.version = "priors-0.1"`. It runs in the browser, in Node and in tests.
+
+What it decides:
+
+- **Frame**: area-weighted Manhattan yaw from the walls (±45°), then the
+  calibration scale factor, then the footprint centred on the origin.
+- **Walls**: each observed wall bounds the side its normal faces; the largest
+  wall wins a side; a wall more than `axisSnapDeg` (12°) off an axis is
+  reported and not used. An unseen side is closed at the smallest extent the
+  evidence allows (floor points and wall ends inside, the camera a stated
+  clearance inside) and marked `inferred`; the wall behind the camera is
+  omitted from the surfaces while the footprint stays closed.
+- **Height**: from the ceiling if seen, else the highest wall top, else the
+  2.5 m default.
+- **Camera**: position, orbit target (where the principal ray leaves the
+  room, held `targetInset` inside), vertical FOV, aspect. Roll is reported,
+  not represented.
+- **Objects and openings**: `objects.ts` + `vocabulary.ts` (below).
+- **Failures**: `no-floor`, `degenerate-room`, `ceiling-below-camera`.
+  `checkInvariants()` throws on a compiler bug (duplicate ids, a missing
+  material, an object outside the room, a light without a fixture, …).
+
+**Calibration** (`calibration.ts`): references are `on-plane` (two marked
+pixels on one fitted plane plus a real distance) or `room-height`. Log-ratios
+are averaged with equal weight into one scale factor; residuals are reported;
+unusable references are rejected with a reason. Without references the factor
+is 1 and the basis stays `estimated`.
+
+**Objects** (`objects.ts`, `vocabulary.ts`): an instance becomes an object
+when its detector score ≥ 0.3 (0.25–0.3 is reported as a candidate), its mask
+score ≥ 0.8, and its phrase is in `VOCABULARY` (`vocabulary-0.1`). Phrases
+map to a category prior, to an opening, to "lamp" (a floor lamp when its top
+is ≥ 1.2 m; a table lamp is not modelled), or explicitly to nothing ("seen,
+not modelled"). Visible extents are estimates and lower bounds; an unseen
+dimension comes from the category's p50 and is labelled `inferred`; facing is
+a rule (away from the wall it stands against, otherwise the way its visible
+faces point); wall-hung things and openings are measured on the wall plane
+from their pixels' rays; small things resting on a piece get
+`support: { kind: "object" }`. Ids are content-ordered (`sofa-0`,
+`armchair-1`) so they survive a recalibration.
+
+## 4. Evidence and provenance
+
+`SceneEvidence` (`compile/evidence.ts`) is a sidecar keyed by the Scene's own
+ids — the Scene contract itself carries no uncertainty. Per entity: `kind`,
+`presence.basis`, per-field `Quantity` (`value`, `basis`, `sigma`, `interval`,
+`confidence`, `sources`, `note`), the observation ids it was built from,
+alternatives, and plain-language notes. `Basis` is `measured` > `calibrated` >
+`estimated` > `inferred` > `default`; `sigma`, `interval` and `confidence` are
+**null throughout v1** — there is no evaluation set yet, so no calibrated
+confidence is claimed.
+
+`CompileReport` records every decision: frame, each side's status and basis,
+dimensions, planes used and ignored (with reasons), the objects report
+(emitted / candidates / not-modelled / rejected), the materials report, the
+lighting report, relationship count, and all problems.
+
+Surfaced in the UI: the photograph and "estimated, not calibrated" vs
+"calibrated to your measurement" in `SceneTitleBlock`, and per-finish and
+per-light readings in `Inspector`, `MaterialsPanel` and `LightingPanel`
+through `reconstruction/describe.ts`. Evidence reaches components via
+`sourceContext.ts`.
+
+## 5. Object relationships
+
+`compile/relationships.ts`, rules version `relations-0.1`, derived
+deterministically from placements alone (sorted, ids `rel-0`…):
+
+- `on` — from `support.kind === "object"`;
+- `against` — a floor piece the placement put against a wall;
+- `above` — a wall-hung piece over a floor piece on the same wall;
+- `in-front-of` — a table within 2.2 m and 35° of a seat's front;
+- `faces` — of the lookers its front ray passes over, the one it faces most
+  squarely (within 7 m, off-axis within its radius + 0.3 m);
+- `beside` — two floor pieces with a footprint gap < 0.6 m, more to the side
+  than ahead; the smaller is beside the larger.
+
+The AI layer re-checks a recorded relationship against the current geometry
+before trusting it (`holds()` in `ai/rules/spatial.ts`), so a piece dragged
+across the room is no longer "beside the sofa".
+
+## 6. Materials
+
+`compile/materials.ts` (`material-rules-0.1`, class `MaterialBook`). Every
+material is one region of the photograph, read four ways, each with its own
+basis:
+
+- **class** — SigLIP 2 zero-shot logits restricted to what the surface or
+  slot can be (`ALLOWED_CLASSES`, e.g. a sofa's upholstery is fabric or
+  leather, a TV screen only glass). `estimated` when the best beats the next
+  by 0.5 logit, the slot's typical class (`default`) when it does not,
+  `inferred` when only one class is possible.
+- **colour** — the median of the region's well-exposed pixels, `estimated`.
+  It is the surface *under this photo's light*; the light is deliberately not
+  divided out, and the Scene's ambient light is kept neutral instead so the
+  warmth is carried exactly once.
+- **roughness** — measured only from the opening mirrored in the floor (how
+  bright and how blurred the reflection is); otherwise the class's typical
+  value, `inferred`. Metalness is always the class's.
+- **pattern** — tiles on a ceramic floor, planks on a wooden one, grain and
+  weave on pieces; a tile size only when both axes of the rectified floor
+  agree.
+
+Walls whose chromaticity agrees (CIE u'v' < 0.012) and whose class matches are
+unified into one paint, coloured by the best-lit of them. Names describe and
+claim nothing more ("Painted surface, light beige"). Anything not read gets a
+plainly named stand-in (`unestimated-floor`, `unestimated-accent`, …).
+
+## 7. Lighting
+
+`compile/lighting.ts` (`light-rules-0.1`) produces exactly three kinds of
+light and nothing else:
+
+- **ambient** — neutral `#ffffff`; the measured grey-world colour and its CCT
+  are recorded beside it, never applied twice;
+- **daylight** — through every glazed opening found; `direct: false` when the
+  sunlit-patch fraction is below 1%; the hour is *not* recoverable from a
+  photograph, so `timeOfDay` is left unset and the renderer's default (0.18)
+  is used, with that said in the notes;
+- **artificial** — one per floor lamp, 2700 K, emitter 0.15 m below its top,
+  `on: true` only when the shade is seen lit (≥ 1.6× its surroundings or ≥ 5%
+  clipped); an unlit lamp keeps no override and follows the daylight.
+
+The shading direction from the pieces is used only as a cross-check against
+the openings' bearings and is reported; a direction no opening explains is a
+problem, not an invented light. The brightness gradient is a second
+cross-check.
+
+## 8. Spatial validation
+
+Two layers, both geometric, no fixed coordinates anywhere:
+
+- **Compiler**: objects are held inside the room, placed on what carries
+  them, snapped against a wall within 0.35 m, and `checkInvariants()` refuses
+  a Scene with anything outside the footprint.
+- **AI layer** (`ai/rules/spatial.ts`, 642 lines): footprints as oriented
+  rectangles, separating-axis `separation()`, height overlap, `insideRoom()`,
+  `heldInside()`, `collision()` against every piece with height (a rug is
+  walked over; what a piece carries or stands on is ignored), and `settle()` —
+  the nearest free spot, searched **along the piece's own wall first** so a
+  sofa keeps its back to the wall, then on rings 2 cm apart up to 0.4 m.
+  Moves are marched in 2 cm steps and stop at the first wall or piece, and a
+  stated distance that was cut short says so. `SPACING` holds the clearances
+  (0.3 m between pieces, 0.1 m beside, 0.4 m in front, 0.15 m behind and
+  above, 0.1 m against a wall).
+
+The photograph's camera defines left/right/front/back (`cameraFrame`,
+`squared`, `acrossPhoto`): the one view the person and the reconstruction
+share, whatever the on-screen orbit is doing. Forward/backward follow a
+piece's own front when it has one (`HAS_FRONT`), the camera when it does not.
+Up and down apply only to wall-hung pieces.
+
+## 9. AI command architecture
+
+One pipeline, `src/features/workspace/ai/`:
+
+```
+text → IntentReader → validateIntent → SceneIntent
+     → resolveIntent → StructuredCommand → validateCommand
+     → compileCommand → ProposedChange[] (SceneOperation[])
+     → preview → apply → history → Scene → renderer
+```
+
+- `interpreter.ts` — the boundary types. An interpreter returns exactly one
+  of four honest outcomes: `changes`, `unavailable` (understood, not possible
+  here; `already: true` when the room is already like that), `clarify`
+  (no selection / ambiguous with options / no reference), `unsupported`.
+- `roomInterpreter.ts` — `createRoomInterpreter(originalScene, reader?)`.
+  The reader is the **only** part that reads words and its output is
+  untrusted until `validateIntent` passes it, so a model plugged in here is
+  held to exactly what the rules are. It declares `kind: "rules" | "model"`,
+  a note and examples, which the UI shows.
+- `rules/read.ts` — `ruleReader`, the reader in this build. Deterministic, not
+  a language model: normalise (case, punctuation, synonyms, spelled-out
+  numbers and units → a canonical vocabulary in `rules/vocabulary.ts`), then
+  an ordered list of intent rules (reset, daylight, switch, replace, remove,
+  face, turn, move, colour, material class, not-a-finish, warmth and light,
+  size, recognised-but-unavailable). Anything outside them returns null.
+- `rules/messages.ts` — every sentence the person can be shown.
+- **No LLM is configured.** No provider, no API key path, no network call
+  anywhere in this layer; with no interpreter passed at all the workspace uses
+  `notConnected`, which refuses and says why. Nothing ever fabricates a model
+  response.
+
+## 10. Intent schema (`ai/intent.ts`)
+
+`SceneIntent` is words-level and closed: `move_object`, `rotate_object`,
+`scale_object`, `remove_object`, `change_material`, `change_lighting`,
+`switch_light`, `replace_object`, `reset_room`, `unavailable_edit`.
+
+Notable fields: a move's destination is `{relative, relation, reference}`
+(closer_to, away_from, beside, above, in_front_of, behind, against, into,
+onto, under) or `{direction}` (left, right, forward, backward, up, down), with
+a `degree` and an optional stated `distance`; a rotate is degrees **or** a
+`face` reference, never both; a material change is a tone, a named colour, a
+material class, or `not_a_finish`; lighting is warmer / cooler / brighter /
+dimmer / more_daylight / less_daylight plus `includeSurfaces`.
+
+`EntityRef` is `selection`, `unspecified`, `room`, `lamps`, a surface, an
+opening, or an `ObjectRef` carrying the words, the categories they name, the
+categories they are only an alias of, `pointed`, `plural`, `sides`, `ordinal`
+and `near: { predicate, of }`.
+
+`validateIntent(value, categories)` is the provider boundary: unknown types,
+relations, classes, categories or sides are refused **by name**, numbers must
+be finite, distance must be > 0 and ≤ `MAX_DISTANCE` (20 m), a scale factor
+must be above zero, nothing is coerced.
+
+## 11. Entity resolution (`ai/rules/resolve.ts`)
+
+Words → the scene's own ids, strongest evidence first:
+
+1. the selected piece, for "this"/"it"/"that chair" when it is one;
+2. pieces of the named category, then pieces the word is only an alias of;
+3. qualifiers — a recorded relationship that still `holds()`, else plainly
+   nearest (within 1.5 m, or 0.6 m for "beside", and 30 cm clearer than the
+   next); a side as the photograph shows it (`bySides`, 15 cm margin,
+   combined diagonal for "front right"); an ordinal ("armchair 2");
+4. otherwise a question back, each candidate described by where it stands —
+   `describeAmong()` produces "front right", "left, beside the sofa",
+   "middle" — never a guess.
+
+Plurals mean every piece that answers. A name nothing answers to is reported
+in the person's own words. Openings and surfaces resolve and are then
+answered honestly ("the glazed door is part of the wall", "the walls are the
+room itself"). `resolveIntent()` returns a `StructuredCommand` or a
+clarify / unsupported / unavailable resolution, including the impossible
+places (into, onto, under) and "make the TV liquid", which is refused with
+what the piece *can* be.
+
+`StructuredCommand` (`ai/command.ts`) is the id-level command —
+`MOVE_OBJECT`, `ROTATE_OBJECT`, `SCALE_OBJECT`, `REMOVE_OBJECT`,
+`CHANGE_MATERIAL`, `CHANGE_LIGHTING`, `SWITCH_LIGHT`, `REPLACE_OBJECT`,
+`RESET_ROOM` — with targets (object, objects, slots, surfaces, lights, room)
+and `PlaceRef` references. `validateCommand(scene, cmd)` checks it against the
+scene before a single operation exists: every id present and of the right
+kind, angles ≤ 360° and non-zero, scale within `SCALE_LIMITS` (⅓–3× per
+command, 0.25–4× total), distances within the room's diagonal, finishes
+within `ALLOWED_CLASSES`, up/down only for wall-hung, no piece moved relative
+to itself. `titleOf()` names the command back ("Move sofa toward glazed
+door", "Make the room darker") and that title is the history label.
+
+## 12. SceneOperation mapping (`ai/rules/compile.ts`)
+
+`compileCommand` turns a validated command into operations through the very
+same edit helpers a drag uses (`state/edits.ts`), so nothing in the AI path
+can reach the renderer:
+
+| Command | Operations |
+| --- | --- |
+| MOVE_OBJECT | `moveRelative` / `beside` / `inFrontOf` / `above` / `againstWall` / `directional` → `moveObject` → `move` for the piece and everything it carries |
+| ROTATE_OBJECT | `planTurn`: turn in place, held inside the room, else settled within 40 cm, else refused with the largest turn that fits |
+| SCALE_OBJECT | `scale`, plus a `move` when the piece must shift to stay clear, reporting what it was cleared of |
+| REMOVE_OBJECT | `remove` for the piece and, first, everything standing on it |
+| CHANGE_MATERIAL | `restyle` per slot / `resurface` per surface, each carrying its `library` entry |
+| CHANGE_LIGHTING | `relight` on the daylight hour (±0.18, or ±0.25 for daylight), lamp colour temperature (±500 K) and output (×1.4), plus `resurface` on the walls when the room — not just "the lighting" — is warmed |
+| SWITCH_LIGHT | `relight { on }` |
+| REPLACE_OBJECT | `replace`, only when `assets/catalogue.ts` has a builder for the asked form; otherwise the structured request is returned as "understood, not available" |
+| RESET_ROOM | add / replace / move / scale / restyle / resurface / relight back to the scene as opened, with `"auto"` where a value was never set |
+
+A change that would alter nothing is dropped; a command with nothing left
+answers "that's already the case" rather than pretending. Everything is a
+pure function of the command and the scene — the same words on the same room
+always give the same operations, which is asserted in the tests.
+
+## 13. History, undo and redo
+
+`scene/model/operations.ts` defines the eight operations — `move`, `scale`,
+`restyle`, `replace`, `add`, `remove`, `resurface`, `relight` —
+`applyOperation` (pure; returns the *same* scene when nothing changes) and
+`invertOperation`, read against the scene as it stood *before* the operation.
+Exactness is handled explicitly: a removed piece comes back with its
+relationships and its light at their original indices; a restyle's inverse
+carries `library: { id, was }` so a finish that was only tried is dropped
+again; `timeOfDay: "auto"` and `on: "auto"` unset a value rather than writing
+down a default.
+
+`state/document.ts` holds `{ name, scene, past, future }`. `commit()` records
+one `Edit` (operations + inverses + label + optional `mergeKey`), collapsing
+consecutive edits of one gesture; `seal()` ends a gesture; `undo`/`redo` apply
+inverses in reverse. History is bounded at 120 entries.
+
+`state/store.ts` (`WorkspaceStore`) is the single source of truth for the
+workspace: document, selection, tool, derived preview scene, proposal,
+command note, limitation, receipt. `acceptProposal()` commits **all** kept
+operations of a command as **one** entry labelled with the command's title —
+so "make the room warmer" (5 operations across lights and walls) is one undo —
+and drops the selection if the command removed the selected piece. `apply`,
+`undo` and `redo` also clear the receipt, so the receipt's own Undo can never
+take back a different step.
+
+## 14. Current tests
+
+`npx vitest run` — **83 tests in 6 files, all passing** (node environment,
+`vitest.config.mts`).
+
+- `src/scene/compile/compileRoomShell.test.ts` (15) — shell, camera,
+  byte-determinism, inferred height, calibration by one measurement and by
+  several with residuals, failures, axis alignment, `parseIntermediate`.
+- `src/scene/compile/materials.test.ts` (17) — colour per region, gloss from
+  the floor's mirror image, measured tiles, wall unification, class
+  fallbacks, light colour not applied twice, lamp switch, direction
+  cross-check, determinism, editing a reconstructed finish through history.
+- `src/scene/compile/objects.test.ts` (9) — score bars, completed depth,
+  placement and support, wall-hung measurement, openings and daylight,
+  relationships, id stability across recalibration, shell-only compile.
+- `src/scene/compile/realRun.test.ts` (2) — real worker output for the MoGe
+  example photograph: every surface traces to a plane or a rule; same bytes
+  every time.
+- `src/features/workspace/ai/rules/commands.test.ts` (21) — reading into the
+  strict intent, the provider boundary, resolution, moves worked out from the
+  scene, rotate/resize/remove, materials and light, determinism, one history
+  step per command.
+- `src/features/workspace/ai/rules/realRoom.test.ts` (19) — the same, against
+  the real `download.png` room, including the eight-command sequence run
+  through the history with strict equality on undo and redo, and a
+  store-level assertion that the receipt is cleared by an undo.
+
+Worker (`~/datum-recon`, `python -m pytest -q tests`): **35 passed**;
+`ruff check` clean, `mypy` clean on 15 source files.
+
+Typecheck (`npx tsc --noEmit`) and lint (`npx eslint`): clean.
+
+Browser verification of Phase 3E was done by hand on the production build and
+is not automated.
+
+## 15. Known limitations
+
+**Not wired up**
+
+- No language model anywhere: `ruleReader` is the only reader, and the
+  workspace says plainly that it is rule-based. There is no provider,
+  credential path or network call behind the boundary yet.
+- The entry page (`/workspace`) reads a photograph in the browser and
+  measures its tones; it cannot start a reconstruction. Runs are made by hand
+  in WSL and read back through `DATUM_RECONSTRUCTION_RUNS`.
+- Nothing is persisted: documents, edits, renames and scenes live in memory
+  for the session only. There is no scene serialisation format.
+- Reconstruction routes are development-only by construction and answer 404
+  when the environment variable is unset.
+
+**Compiler**
+
+- Rectangular rooms only: walls more than 12° off an axis are reported and
+  ignored, and the footprint is always a centred rectangle.
+- One view per run; the wall behind the camera is omitted from the surfaces;
+  an unseen side is a lower bound, and its basis is `inferred` or `default`.
+- Room type is never estimated (always `other`); camera roll cannot be
+  represented; `sigma`, `interval` and `confidence` are null everywhere, and
+  all priors and thresholds are provisional until there is an evaluation set.
+- Vocabulary gaps are reported, not guessed: stool, ceiling fan and wall
+  clock are "seen, not modelled"; a table lamp has no builder; a phrase
+  outside the vocabulary is rejected by name.
+- Materials keep the photograph's light in their colours by design;
+  roughness is measured only where a floor mirrors an opening.
+- The daylight hour is not recoverable from a photograph; lamp colour
+  temperature is a fixed 2700 K.
+
+**AI layer**
+
+- One piece per move; no adding furniture (no asset library); replacement is
+  limited to the forms the renderer can build; windows and doors can be
+  named but not moved, resized or removed; "empty the room", "into the
+  corner" and "into the middle" are answered as not available.
+- No multi-step planning, no conversation memory and no transcript: each
+  command is read on its own, with the current selection as its only context.
+- Ambiguity is always a question back, never a guess, which means some
+  reasonable commands need a second click.
+
+**Elsewhere**
+
+- Categories without a dedicated renderer builder are drawn as their bounding
+  volume.
+- The worker needs its pinned weights present and hash-matching; there is no
+  CPU fallback for the main inference.
+
+## 16. Dev and run commands
+
+```bash
+# web app (repo root)
+npm run dev          # next dev
+npm run build        # next build
+npm run start        # next start  (verification used: npx next start -p 3100)
+npm run typecheck    # tsc --noEmit
+npm run lint         # eslint
+npm run test         # vitest run
+```
+
+`.env` for local reconstructions (development only):
+
+```
+DATUM_RECONSTRUCTION_RUNS=\\wsl.localhost\Ubuntu\home\datum\datum-recon\runs
+```
+
+Routes: `/workspace` (entry), `/workspace/demo` (the hand-authored room),
+`/workspace/reconstruction` (local runs), `/workspace/reconstruction/[runId]`
+(a run compiled in the browser and opened in the workspace), and the
+dev-only API `/api/reconstructions/local[/<runId>/<file>]`, which serves only
+five named files and never leaves the runs directory.
+
+```bash
+# worker (WSL: Ubuntu only, never Ubuntu-20.04)
+wsl -d Ubuntu
+cd ~/datum-recon && source .venv/bin/activate
+python -m reconstruction.worker --input /path/to/room.jpg
+python -m reconstruction.calibrate --run runs/<runId> --plane plane-2 \
+  --a 812,540 --b 1010,541 --metres 0.9 --label "door width"
+python -m compileall -q reconstruction tests && ruff check reconstruction tests \
+  && mypy reconstruction && python -m pytest -q tests
+```
+
+## 17. Current reconstruction fixture
+
+`src/scene/compile/__fixtures__/download-png.intermediate.json` (251 KB) is
+byte-identical to `runs/20260922T065240Z-2d25a689/reconstruction.json` — real
+worker output for `download.png`, pipeline `0.1.0+e43837069c3a`, a 1254 × 1254
+image, diagnostics `degraded` with one warning (GeoCalib and MoGe-2 disagree
+on the vertical field of view). It holds 18 planes, 39 instances, 83
+appearance regions and the light observation.
+
+Compiled, it is the room the AI tests and the browser verification run
+against: **3.72 × 6.42 × 3.00 m**, camera FOV 59.14°, scale uncalibrated
+(factor 1, `estimated`), the far/left/right walls observed and the side behind
+the camera omitted.
+
+- **16 objects**: sofa, 2 armchairs, chair, coffee table, media console,
+  bookshelf, ottoman, floor lamp, television, 4 artworks, 2 curtains.
+- **1 opening**: `window-0`, "Glazed door", in the far wall.
+- **5 surfaces**, **26 materials** (ceramic glossy floor, one unified wall
+  paint, per-piece finishes, two stand-ins), **3 lights** (neutral ambient,
+  diffuse daylight through the glazed door, the floor lamp seen unlit),
+  **21 relationships**.
+- Reported and not emitted: a ceiling fan and a wall clock (no builder),
+  several windows seen through the glazed door (not set in a fitted wall),
+  one chair whose mask was not trusted, and 13 low-score candidates.
+
+Other fixtures: `moge-example-house-indoor.intermediate.json` (+ its compiled
+form) for `realRun.test.ts`, and `synthetic.ts`, which builds observations of
+a known room so the compiler can be tested against ground truth.
+
+## 18. Important files and directories
+
+```
+src/scene/model/           types.ts (the Scene contract), operations.ts, queries.ts, summary.ts
+src/scene/compile/         the SceneCompiler: intermediate.ts (worker contract), compileRoomShell.ts,
+                           objects.ts, vocabulary.ts, materials.ts, lighting.ts, relationships.ts,
+                           calibration.ts, evidence.ts, priors.ts, frame.ts, __fixtures__/
+src/scene/render/          SceneStage.ts and the parametric object builders; reads a Scene, nothing else
+src/features/workspace/
+  state/                   document.ts (history), store.ts (WorkspaceStore), edits.ts (every edit intent)
+  ai/                      interpreter.ts (boundary), intent.ts (schema + validator), command.ts
+                           (StructuredCommand + validateCommand), roomInterpreter.ts,
+                           rules/{read,resolve,compile,spatial,vocabulary,messages}.ts + 2 test files
+  command/                 CommandBar.tsx (one line, kinds of answer, clickable choices), ChangeProposal.tsx
+  reconstruction/          loadRun.ts, localRuns.ts, ReconstructionIndex/Workspace.tsx, describe.ts
+  panels/, Inspector.tsx, Viewport.tsx, TopBar.tsx, scene/  the workspace itself
+src/app/workspace/         /workspace, /workspace/demo, /workspace/reconstruction[/runId]
+src/app/api/reconstructions/local/   dev-only run listing and file reading
+src/demo/                  the hand-authored demonstration room
+docs/reconstruction-architecture.md  the design document (committed)
+~/datum-recon (WSL)        the Python worker: reconstruction/*.py, tests/, weights/, runs/
+```
