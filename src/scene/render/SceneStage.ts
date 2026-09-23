@@ -717,6 +717,7 @@ export class SceneStage {
   }
 
   private syncLights(next: Scene) {
+    this.rig?.configure(next);
     for (const lamp of this.lamps) {
       const source = next.lights.find(
         (l): l is ArtificialLight => l.kind === "artificial" && l.id === lamp.source.id,
@@ -1028,6 +1029,7 @@ export class SceneStage {
   private buildLighting(scene: Scene, variant?: Scene) {
     const windows = (this.before?.openings ?? []).filter((o) => o.kind === "window");
     this.rig = new LightRig(this.three, this.roomCenter, windows, this.profile.shadowMapSize);
+    this.rig.configure(scene);
 
     const addLamps = (source: Scene, objects: Map<Id, ObjectRuntime>) => {
       source.lights

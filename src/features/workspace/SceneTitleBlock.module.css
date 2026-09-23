@@ -40,6 +40,24 @@
   color: var(--ink-3);
 }
 
+/* A reconstructed room keeps its photograph beside it, whole and uncropped. */
+.row[data-photo] dd {
+  padding: 0.35rem;
+}
+
+.row[data-photo] img {
+  display: block;
+  width: 100%;
+  max-height: 8rem;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.qualifier {
+  display: block;
+  color: var(--ink-3);
+}
+
 /* On a phone the room needs every pixel; the readings live in the panels. */
 @media (max-width: 60rem) {
   .block {

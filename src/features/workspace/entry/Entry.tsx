@@ -10,6 +10,8 @@ import { useSource } from "../source/useSource";
 import styles from "./Entry.module.css";
 
 const DEMO_ROUTE = `${routes.workspace}/demo`;
+/** The existing list of rooms the local reconstruction worker has built. */
+const RECONSTRUCTION_ROUTE = `${routes.workspace}/reconstruction`;
 
 /**
  * The door into the product.
@@ -163,13 +165,13 @@ export function Entry() {
                     </li>
                   ))}
                 </ol>
-                <Button disabled aria-describedby="pipeline-note" className={styles.reconstruct}>
-                  Reconstruct this room
-                </Button>
+                <ButtonLink href={RECONSTRUCTION_ROUTE} aria-describedby="pipeline-note" className={styles.reconstruct}>
+                  Open room reconstructions
+                </ButtonLink>
                 <p id="pipeline-note" className={styles.honest}>
-                  Reconstruction isn’t connected in this build, so nothing has been detected in your
-                  space and no 3D model has been made from it. Your photograph stays here, as the
-                  source of this space, until it is.
+                  Rooms are reconstructed by the reconstruction worker on this machine, and its finished
+                  runs open from there. This photograph stays in this browser: it has not been sent to
+                  the worker, so nothing has been detected in it yet.
                 </p>
               </section>
 

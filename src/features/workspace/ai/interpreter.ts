@@ -1,5 +1,7 @@
 import type { SceneOperation } from "@/scene/model/operations";
 import type { Id, Scene } from "@/scene/model/types";
+import type { StructuredCommand } from "./command";
+import type { SceneIntent } from "./intent";
 
 /**
  * The boundary a language model will sit behind.
@@ -9,19 +11,33 @@ import type { Id, Scene } from "@/scene/model/types";
  * for an *interpretation*: scene operations it can preview, show, and apply
  * or discard, exactly like an edit made by hand.
  *
- *   SceneCommand → CommandInterpreter → CommandIntent → ProposedChange[]
- *                                                             ↓
- *                                                 preview → apply → history
+ *   text → IntentReader → validateIntent → SceneIntent
+ *        → resolve (entities) → StructuredCommand → validateCommand
+ *        → compile → ProposedChange[] (SceneOperation[])
+ *        → preview → apply → history → Scene → renderer
  *
- * Everything downstream of the interpreter is the same machinery a drag
- * goes through, so whatever replaces the interpreter inherits undo,
- * preview and the renderer for free.
+ * Everything downstream of the reader is the same machinery a drag goes
+ * through, so whatever reads the words inherits undo, preview and the
+ * renderer for free, and can never reach past them.
  *
  * An interpreter describes itself, and the interface makes it say *how* it
  * reads a command. A rule-based reader normalises wording and matches a
  * known set of intents; a model reads language. The workspace shows which
  * one is answering rather than letting a person assume.
  */
+
+/**
+ * Reads words into an intent, and nothing more. Its output is untrusted:
+ * the interpreter validates it (`validateIntent`) before compiling it, so a
+ * model and the rules are held to the same schema. It never sees operations,
+ * the renderer or the history.
+ */
+export interface IntentReader {
+  readonly kind: "rules" | "model";
+  readonly name: string;
+  /** An intent-shaped value, or null when the words are not an edit it knows. */
+  read(text: string, signal: AbortSignal): Promise<unknown>;
+}
 
 /** What the person asked, with the context needed to resolve words like "this". */
 export interface SceneCommand {
@@ -32,51 +48,20 @@ export interface SceneCommand {
   scene: Scene;
 }
 
-/**
- * What a command was understood to ask for, before it is planned against the
- * scene. A model would produce the same shape, which is why it is spelled out
- * rather than left implicit in a parser.
- */
-export interface CommandIntent {
-  intent: IntentKind;
-  /** Who or what the command is about, as it was named. */
-  target: IntentTarget;
-  /** The verb, normalised: "darken", "rotate", "move-closer", "replace". */
-  action: string;
-  /** Everything else the command specified, keyed by meaning. */
-  parameters: Readonly<Record<string, string | number | boolean | readonly string[]>>;
-  /** 0..1: how directly the words named this intent. */
-  confidence: number;
-  /** Set when the command cannot be carried out without asking something. */
-  clarificationRequired: Clarification | null;
+/** One of the pieces a name could mean, with where it stands, so the person can say which. */
+export interface ClarifyOption {
+  id: Id;
+  label: string;
+  /** Where it is, from the scene's geometry: "front left, beside the sofa". Empty when nothing sets it apart. */
+  description: string;
 }
-
-export type IntentKind =
-  | "tone"
-  | "recolour"
-  | "warmth"
-  | "brightness"
-  | "size"
-  | "rotate"
-  | "move"
-  | "switch"
-  | "replace"
-  | "reset"
-  | "unavailable";
-
-export type IntentTarget =
-  | { kind: "room" }
-  /** "this", "that", "it", "the selected one": whatever is selected. */
-  | { kind: "selection"; word: string }
-  /** The words before any relation, to be looked up in the scene. */
-  | { kind: "named"; phrase: string }
-  | { kind: "unspecified" };
 
 export type Clarification =
   | { reason: "no-selection" }
-  | { reason: "ambiguous"; options: readonly string[] }
+  | { reason: "ambiguous"; options: readonly ClarifyOption[] }
   | { reason: "no-target" }
-  | { reason: "no-reference" };
+  | { reason: "no-reference" }
+  | { reason: "out-of-range" };
 
 /** One proposed change: what it touches, what it does, and how. */
 export interface ProposedChange {
@@ -94,9 +79,13 @@ export interface ProposedChange {
 export interface Interpretation {
   /** The command this answers, kept so the proposal can be read on its own. */
   command: string;
+  /** The structured command in a few words, for the history: "Move sofa toward glazed door". */
+  title: string;
   summary: string;
   changes: readonly ProposedChange[];
-  intent: CommandIntent;
+  intent: SceneIntent;
+  /** What the intent resolved to in this scene, ids and all; the changes are compiled from it. */
+  structured: StructuredCommand;
 }
 
 /**
@@ -121,9 +110,17 @@ export interface ReplacementRequest {
  */
 export type InterpretationResult =
   | { outcome: "changes"; interpretation: Interpretation }
-  | { outcome: "unavailable"; message: string; command: string; intent: CommandIntent; request?: ReplacementRequest }
-  | { outcome: "clarify"; message: string; intent: CommandIntent }
-  | { outcome: "unsupported"; message: string };
+  | {
+      outcome: "unavailable";
+      message: string;
+      command: string;
+      intent: SceneIntent;
+      request?: ReplacementRequest;
+      /** Not a missing capability: what was asked is already true of the room, so nothing changes. */
+      already?: true;
+    }
+  | { outcome: "clarify"; message: string; intent: SceneIntent; clarification: Clarification }
+  | { outcome: "unsupported"; message: string; intent?: SceneIntent };
 
 export interface CommandInterpreter {
   readonly name: string;

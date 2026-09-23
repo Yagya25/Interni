@@ -151,7 +151,14 @@ export type ObjectCategory =
   | "ottoman"
   | "basket"
   | "curtain"
-  | "bench";
+  | "bench"
+  // Added for reconstruction: common pieces a photograph shows that the
+  // demonstration room does not contain.
+  | "chair"
+  | "dining-table"
+  | "desk"
+  | "cabinet"
+  | "bed";
 
 export interface Transform {
   position: Vec3;
@@ -210,7 +217,9 @@ export type SurfacePattern =
   | "limewash"
   | "plaster"
   | "jute"
-  | "canvas";
+  | "canvas"
+  // Added for reconstruction: a tiled floor or wall, one tile per quarter of a repeat.
+  | "tiles";
 
 export interface Material {
   id: Id;
@@ -243,6 +252,12 @@ export interface DaylightSource extends LightBase {
    * Reconstruction estimates it from the photograph; an editor may change it.
    */
   timeOfDay?: number;
+  /**
+   * Whether direct sun reaches the room through its openings. Undefined is
+   * the renderer's own sun. A reconstruction sets false when the photograph
+   * shows the room's daylight as diffuse: no sunlit patch on any surface.
+   */
+  direct?: boolean;
 }
 
 export interface AmbientLight extends LightBase {

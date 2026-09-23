@@ -3,7 +3,7 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 import { applyOperations } from "@/scene/model/operations";
 import type { Id, Material, Scene } from "@/scene/model/types";
-import type { CommandInterpreter, Interpretation, ReplacementRequest, SceneCommand } from "../ai/interpreter";
+import type { ClarifyOption, CommandInterpreter, Interpretation, ReplacementRequest, SceneCommand } from "../ai/interpreter";
 import type { Intent } from "./edits";
 import {
   canRedo,
@@ -34,17 +34,33 @@ export interface WorkspaceState {
   /**
    * What the command bar has to say. `note` is an honest answer that is not
    * a failure — a phrasing that isn't understood, or a request that needs a
-   * selection before it can mean anything.
+   * selection before it can mean anything. `kind` says which, and `options`
+   * are the pieces an ambiguous name could mean, for the person to pick.
    */
-  command: { pending: boolean; note: string | null; tone: "plain" | "select" };
+  command: CommandNote;
   /**
    * A request that was understood but that this build cannot carry out,
    * shown with what was asked so it is plain the words were read.
    */
   limitation: { command: string; message: string; request: ReplacementRequest } | null;
-  /** What the last applied proposal did, shown briefly after Apply. */
-  receipt: { summary: string; changes: number } | null;
+  /** What the last applied proposal did, shown briefly after Apply: one step in the history. */
+  receipt: { title: string; summary: string; changes: number } | null;
 }
+
+/** How the interpreter answered, when it didn't answer with changes. */
+export type NoteKind = "ambiguous" | "needs-subject" | "needs-destination" | "unsupported" | "unavailable" | "no-change" | "not-understood";
+
+export interface CommandNote {
+  pending: boolean;
+  note: string | null;
+  tone: "plain" | "select";
+  kind: NoteKind | null;
+  /** The words the note answers, so a choice among `options` can ask again. */
+  text: string | null;
+  options: readonly ClarifyOption[];
+}
+
+const IDLE: CommandNote = { pending: false, note: null, tone: "plain", kind: null, text: null, options: [] };
 
 /**
  * The workspace's single source of truth.
@@ -74,7 +90,7 @@ export class WorkspaceStore {
       scene,
       proposal: null,
       previewing: new Set(),
-      command: { pending: false, note: null, tone: "plain" },
+      command: IDLE,
       limitation: null,
       receipt: null,
     };
@@ -99,7 +115,7 @@ export class WorkspaceStore {
   apply(intent: Intent) {
     const doc = commit(this.state.doc, intent.operations, intent.label, intent.mergeKey);
     if (doc === this.state.doc) return;
-    this.set({ doc, ...this.dropped(doc) });
+    this.set({ doc, ...this.moved(doc) });
   }
 
   /** End a gesture. The next edit begins a new history entry. */
@@ -111,19 +127,29 @@ export class WorkspaceStore {
   undo() {
     const doc = undo(this.state.doc);
     if (doc === this.state.doc) return;
-    this.set({ doc, ...this.dropped(doc) });
+    this.set({ doc, ...this.moved(doc) });
   }
 
   redo() {
     const doc = redo(this.state.doc);
     if (doc === this.state.doc) return;
-    this.set({ doc, ...this.dropped(doc) });
+    this.set({ doc, ...this.moved(doc) });
   }
 
   /** Selection survives undo only while its object still exists. */
   private dropped(doc: WorkspaceDocument) {
     const gone = this.state.selection && !doc.scene.objects.some((o) => o.id === this.state.selection);
     return gone ? { selection: null } : null;
+  }
+
+  /**
+   * After any step through the history other than applying a proposal:
+   * the selection, as `dropped` says, and the receipt of the last command,
+   * which no longer describes the last step — its Undo would otherwise take
+   * back a different one.
+   */
+  private moved(doc: WorkspaceDocument) {
+    return { ...this.dropped(doc), ...(this.state.receipt && { receipt: null }) };
   }
 
   rename(name: string) {
@@ -154,7 +180,7 @@ export class WorkspaceStore {
     this.set({
       proposal,
       previewing: new Set(proposal.changes.map((c) => c.id)),
-      command: { pending: false, note: null, tone: "plain" },
+      command: IDLE,
       limitation: null,
       receipt: null,
     });
@@ -166,23 +192,23 @@ export class WorkspaceStore {
     this.set({ previewing });
   }
 
-  /** Accept the previewed changes, as one undoable edit each. */
+  /**
+   * Accept the previewed changes as one edit: a command is one thing the
+   * person did, so one undo takes all of it back — the walls, the bulbs and
+   * the hour of "make the room warmer" together.
+   */
   acceptProposal() {
     const { proposal, previewing } = this.state;
     if (!proposal) return;
-    let doc = this.state.doc;
-    let applied = 0;
-    for (const change of proposal.changes) {
-      if (!previewing.has(change.id)) continue;
-      const next = seal(commit(doc, change.operations, `${change.target} — ${change.detail}`));
-      if (next !== doc) applied += 1;
-      doc = next;
-    }
+    const kept = proposal.changes.filter((change) => previewing.has(change.id));
+    const doc = seal(commit(seal(this.state.doc), kept.flatMap((change) => change.operations), proposal.title));
     this.set({
       doc,
       proposal: null,
       previewing: new Set(),
-      receipt: applied > 0 ? { summary: proposal.summary, changes: applied } : null,
+      receipt: doc !== this.state.doc ? { title: proposal.title, summary: proposal.summary, changes: kept.length } : null,
+      // A command that took the selected piece away takes the selection with it.
+      ...this.dropped(doc),
     });
   }
 
@@ -194,6 +220,7 @@ export class WorkspaceStore {
   clearReceipt() {
     if (this.state.receipt) this.set({ receipt: null });
   }
+
 
   /**
    * Send a command to the interpreter.
@@ -214,7 +241,7 @@ export class WorkspaceStore {
       subjectId: this.state.selection,
       scene: this.state.doc.scene,
     };
-    this.set({ command: { pending: true, note: null, tone: "plain" }, limitation: null, receipt: null });
+    this.set({ command: { ...IDLE, pending: true, text }, limitation: null, receipt: null });
     try {
       const result = await this.interpreter.interpret(command, signal);
       if (signal.aborted) return false;
@@ -226,27 +253,34 @@ export class WorkspaceStore {
         this.set({
           proposal: null,
           previewing: new Set(),
-          command: { pending: false, note: null, tone: "plain" },
+          command: IDLE,
           limitation: { command: result.command, message: result.message, request: result.request },
         });
         return true;
       }
-      this.note(result.message, result.outcome === "clarify" ? "select" : "plain");
+      if (result.outcome === "clarify") {
+        const { clarification } = result;
+        const kind: NoteKind = clarification.reason === "ambiguous" ? "ambiguous" : clarification.reason === "no-reference" ? "needs-destination" : "needs-subject";
+        this.note(result.message, "select", kind, text, clarification.reason === "ambiguous" ? clarification.options : []);
+        return false;
+      }
+      const kind: NoteKind = result.outcome === "unavailable" ? (result.already ? "no-change" : "unavailable") : result.intent ? "unsupported" : "not-understood";
+      this.note(result.message, "plain", kind, text);
       return false;
     } catch (error) {
       if (signal.aborted) return false;
-      this.note(error instanceof Error ? error.message : "The command could not be read.");
+      this.note(error instanceof Error ? error.message : "The command could not be read.", "plain", "unsupported", text);
       return false;
     }
   }
 
-  private note(note: string, tone: "plain" | "select" = "plain") {
-    this.set({ command: { pending: false, note, tone } });
+  private note(note: string, tone: "plain" | "select" = "plain", kind: NoteKind | null = null, text: string | null = null, options: readonly ClarifyOption[] = []) {
+    this.set({ command: { pending: false, note, tone, kind, text, options } });
   }
 
   clearNote() {
     if (!this.state.command.note) return;
-    this.set({ command: { pending: false, note: null, tone: "plain" } });
+    this.set({ command: IDLE });
   }
 
   // -------------------------------------------------------------------------

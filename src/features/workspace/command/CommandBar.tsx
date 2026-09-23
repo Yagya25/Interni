@@ -2,8 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SendIcon } from "../icons";
-import { useSelectedObject, useStore, useWorkspace } from "../state/store";
+import { useSelectedObject, useStore, useWorkspace, type NoteKind } from "../state/store";
 import styles from "./CommandBar.module.css";
+
+/** What each kind of answer is called where it is shown. */
+const KIND_LABEL: Record<NoteKind, string> = {
+  ambiguous: "Ambiguous",
+  "needs-subject": "Which piece?",
+  "needs-destination": "Where to?",
+  unsupported: "Unsupported",
+  unavailable: "Not available yet",
+  "no-change": "No change",
+  "not-understood": "Not understood",
+};
 
 /**
  * The command surface.
@@ -12,6 +23,10 @@ import styles from "./CommandBar.module.css";
  * line, about the room, with whatever is selected carried along as its
  * subject. It sends to the interpreter, and when there is no interpreter
  * it says so plainly rather than inventing an answer.
+ *
+ * Every answer says what kind it is. When a name fits several pieces, each
+ * is offered by name and where it stands; choosing one selects it and asks
+ * again, so the same words now mean that piece.
  */
 export function CommandBar() {
   const store = useStore();
@@ -19,6 +34,9 @@ export function CommandBar() {
   const pending = useWorkspace((s) => s.command.pending);
   const note = useWorkspace((s) => s.command.note);
   const tone = useWorkspace((s) => s.command.tone);
+  const kind = useWorkspace((s) => s.command.kind);
+  const asked = useWorkspace((s) => s.command.text);
+  const options = useWorkspace((s) => s.command.options);
   const [text, setText] = useState("");
   const areaRef = useRef<HTMLTextAreaElement | null>(null);
   const runRef = useRef<AbortController | null>(null);
@@ -36,16 +54,26 @@ export function CommandBar() {
     area.style.height = `${Math.min(area.scrollHeight, 132)}px`;
   }, [text]);
 
-  const submit = () => {
-    if (!ready) return;
+  const send = (words: string) => {
     runRef.current?.abort();
     const controller = new AbortController();
     runRef.current = controller;
     // The words stay in the field unless they produced something, so an
     // unread phrasing can be corrected rather than retyped.
-    void store.run(text.trim(), controller.signal).then((consumed) => {
+    void store.run(words, controller.signal).then((consumed) => {
       if (consumed && !controller.signal.aborted) setText("");
     });
+  };
+
+  const submit = () => {
+    if (ready) send(text.trim());
+  };
+
+  /** One of the pieces an ambiguous name could mean: select it, and ask the same thing again. */
+  const choose = (id: string) => {
+    if (!asked || pending) return;
+    store.select(id);
+    send(asked);
   };
 
   return (
@@ -99,10 +127,30 @@ export function CommandBar() {
       {!available && text.trim().length > 0 && !note && (
         <p className={styles.notice}>{unavailableReason}</p>
       )}
-      {note && (
-        <p className={styles.notice} data-tone={tone} role="status">
-          {note}
+      {pending && (
+        <p className={styles.notice} role="status">
+          Processing…
         </p>
+      )}
+      {note && (
+        <div className={styles.answer} data-tone={tone} role="status">
+          <p className={styles.notice} data-tone={tone}>
+            {kind && <span className={styles.kind}>{KIND_LABEL[kind]}</span>}
+            {note}
+          </p>
+          {options.length > 0 && (
+            <ul className={styles.options} aria-label="Which one">
+              {options.map((option) => (
+                <li key={option.id}>
+                  <button type="button" className={styles.option} onClick={() => choose(option.id)}>
+                    <span className={styles.optionLabel}>{option.label}</span>
+                    {option.description && <span className={styles.optionWhere}>{option.description}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </form>
   );

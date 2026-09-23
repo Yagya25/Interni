@@ -315,6 +315,33 @@ const patterns: Record<Exclude<SurfacePattern, "none">, { size: number; draw: Dr
       });
     },
   },
+  // Four by four square tiles per repeat, so `patternScale` is four tiles'
+  // width. Each tile is a hair lighter or darker than its neighbours, as
+  // glazed tiles from one batch are, and the joints are thin and slightly
+  // darker than the tile.
+  tiles: {
+    size: 1024,
+    draw(ctx, size, rand) {
+      const count = 4;
+      const cell = size / count;
+      const glaze = fbm(rand, 3, 6);
+      const tones = Array.from({ length: count * count }, () => 0.955 + rand() * 0.04);
+      paintPixels(ctx, size, (u, v) => {
+        const i = Math.min(count - 1, Math.floor(u * count));
+        const j = Math.min(count - 1, Math.floor(v * count));
+        return tones[j * count + i] + (glaze(u, v) - 0.5) * 0.025;
+      });
+      ctx.fillStyle = grey(0.8, 0.9);
+      const joint = Math.max(1.5, size / 400);
+      for (let k = 0; k < count; k++) {
+        ctx.fillRect(k * cell - joint / 2, 0, joint, size);
+        ctx.fillRect(0, k * cell - joint / 2, size, joint);
+      }
+      // The joint at the seam, drawn on both edges so the texture tiles.
+      ctx.fillRect(size - joint / 2, 0, joint / 2, size);
+      ctx.fillRect(0, size - joint / 2, size, joint / 2);
+    },
+  },
 };
 
 function toTexture(canvas: HTMLCanvasElement, maxAnisotropy: number) {

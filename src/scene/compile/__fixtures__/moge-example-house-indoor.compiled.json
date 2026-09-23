@@ -1,0 +1,688 @@
+{
+  "ok": true,
+  "scene": {
+    "schemaVersion": 1,
+    "id": "reconstruction-run",
+    "provenance": {
+      "kind": "reconstruction",
+      "sourceImageId": "3eb519bc68d4262a",
+      "pipelineVersion": "0.1.0+2279f6897a8c",
+      "createdAt": "2026-09-22T01:50:34Z"
+    },
+    "room": {
+      "type": "other",
+      "label": "Reconstructed room",
+      "footprint": [
+        [
+          -1.375,
+          -2.346
+        ],
+        [
+          1.375,
+          -2.346
+        ],
+        [
+          1.375,
+          2.346
+        ],
+        [
+          -1.375,
+          2.346
+        ]
+      ],
+      "height": 2.456
+    },
+    "camera": {
+      "position": [
+        0.224,
+        1.186,
+        1.846
+      ],
+      "target": [
+        -0.975,
+        1.121,
+        -1.453
+      ],
+      "verticalFov": 69.61,
+      "aspect": 1.5
+    },
+    "surfaces": [
+      {
+        "id": "floor",
+        "kind": "floor",
+        "label": "Floor",
+        "materialId": "unestimated-floor",
+        "evidence": "observed"
+      },
+      {
+        "id": "ceiling",
+        "kind": "ceiling",
+        "label": "Ceiling",
+        "materialId": "unestimated-ceiling",
+        "evidence": "observed"
+      },
+      {
+        "id": "wall-far",
+        "kind": "wall",
+        "label": "Far wall",
+        "materialId": "unestimated-wall",
+        "evidence": "observed",
+        "start": [
+          -1.375,
+          -2.346
+        ],
+        "end": [
+          1.375,
+          -2.346
+        ],
+        "thickness": 0.12
+      },
+      {
+        "id": "wall-left",
+        "kind": "wall",
+        "label": "Left wall",
+        "materialId": "unestimated-wall",
+        "evidence": "observed",
+        "start": [
+          -1.375,
+          2.346
+        ],
+        "end": [
+          -1.375,
+          -2.346
+        ],
+        "thickness": 0.12
+      },
+      {
+        "id": "wall-right",
+        "kind": "wall",
+        "label": "Right wall",
+        "materialId": "unestimated-wall",
+        "evidence": "observed",
+        "start": [
+          1.375,
+          -2.346
+        ],
+        "end": [
+          1.375,
+          2.346
+        ],
+        "thickness": 0.12
+      }
+    ],
+    "openings": [],
+    "objects": [],
+    "materials": [
+      {
+        "id": "unestimated-floor",
+        "class": "paint",
+        "name": "Floor — finish not estimated",
+        "color": "#b9b4ab",
+        "roughness": 0.9,
+        "metalness": 0,
+        "pattern": "none"
+      },
+      {
+        "id": "unestimated-wall",
+        "class": "paint",
+        "name": "Wall — finish not estimated",
+        "color": "#dedad3",
+        "roughness": 0.92,
+        "metalness": 0,
+        "pattern": "none"
+      },
+      {
+        "id": "unestimated-ceiling",
+        "class": "paint",
+        "name": "Ceiling — finish not estimated",
+        "color": "#ebe8e3",
+        "roughness": 0.95,
+        "metalness": 0,
+        "pattern": "none"
+      }
+    ],
+    "lights": [
+      {
+        "id": "ambient",
+        "kind": "ambient",
+        "label": "Ambient light (assumed)",
+        "color": "#ffffff"
+      }
+    ],
+    "relationships": []
+  },
+  "evidence": {
+    "schemaVersion": 1,
+    "sceneId": "reconstruction-run",
+    "scale": {
+      "factor": 1,
+      "basis": "estimated",
+      "logSigma": null,
+      "references": [],
+      "residuals": []
+    },
+    "entities": {
+      "room": {
+        "kind": "room",
+        "presence": {
+          "basis": "estimated"
+        },
+        "fields": {
+          "width": {
+            "value": 2.75,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "moge-2-vitl-normal@cb0e8bb",
+              "rule:room-shell"
+            ]
+          },
+          "depth": {
+            "value": 4.692,
+            "basis": "default",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "moge-2-vitl-normal@cb0e8bb",
+              "rule:room-shell"
+            ]
+          },
+          "height": {
+            "value": 2.456,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "moge-2-vitl-normal@cb0e8bb",
+              "plane:plane-1"
+            ]
+          },
+          "type": {
+            "value": "other",
+            "basis": "default",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "priors:priors-0.1"
+            ]
+          }
+        },
+        "observations": [
+          "plane-0"
+        ],
+        "notes": [
+          "Sizes are estimated from one photograph and are not calibrated. Every length shares one unknown scale error.",
+          "From the ceiling seen (plane-1), at the centre of its visible part.",
+          "Room type is not estimated in this version."
+        ]
+      },
+      "camera": {
+        "kind": "camera",
+        "presence": {
+          "basis": "estimated"
+        },
+        "fields": {
+          "position.1": {
+            "value": 1.186,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "moge-2-vitl-normal@cb0e8bb",
+              "rule:floor-plane"
+            ]
+          },
+          "verticalFov": {
+            "value": 69.61,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "moge-2-vitl-normal@07444410"
+            ],
+            "note": "used for geometry; source moge: GeoCalib's own vFOV sigma 16.29 deg > 5.0 deg: focal weakly determined, so MoGe-2's estimate from the dense geometry is used"
+          },
+          "roll": {
+            "value": -0.0986,
+            "basis": "estimated",
+            "sigma": 0.608433,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "geocalib-pinhole@97b8968"
+            ],
+            "note": "not representable in the Scene camera; dropped"
+          }
+        },
+        "observations": [
+          "view-0"
+        ],
+        "notes": [
+          "Field of view from MoGe-2; the other model's estimate is kept in the intermediate."
+        ]
+      },
+      "floor": {
+        "kind": "surface",
+        "presence": {
+          "basis": "estimated"
+        },
+        "fields": {
+          "visibleArea": {
+            "value": 2.95,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "plane:plane-0"
+            ]
+          },
+          "rmsResidual": {
+            "value": 0.0058,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "plane:plane-0"
+            ],
+            "note": "metres, RMS distance of the fitted pixels from the plane"
+          }
+        },
+        "observations": [
+          "plane-0"
+        ],
+        "notes": [
+          "Fitted to the floor seen in the photograph.",
+          "137,484 pixels fitted."
+        ]
+      },
+      "ceiling": {
+        "kind": "surface",
+        "presence": {
+          "basis": "estimated"
+        },
+        "fields": {
+          "visibleArea": {
+            "value": 6.57,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "plane:plane-1"
+            ]
+          },
+          "rmsResidual": {
+            "value": 0.0061,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "plane:plane-1"
+            ],
+            "note": "metres, RMS distance of the fitted pixels from the plane"
+          }
+        },
+        "observations": [
+          "plane-1"
+        ],
+        "notes": [
+          "From the ceiling seen (plane-1), at the centre of its visible part.",
+          "188,158 pixels fitted."
+        ]
+      },
+      "wall-far": {
+        "kind": "surface",
+        "presence": {
+          "basis": "estimated"
+        },
+        "fields": {
+          "position": {
+            "value": -2.346,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "moge-2-vitl-normal@cb0e8bb",
+              "plane:plane-2"
+            ]
+          },
+          "thickness": {
+            "value": 0.12,
+            "basis": "default",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "priors:priors-0.1"
+            ]
+          }
+        },
+        "observations": [
+          "plane-2"
+        ],
+        "notes": [
+          "Seen: plane-2, 6.19 m² visible."
+        ]
+      },
+      "wall-left": {
+        "kind": "surface",
+        "presence": {
+          "basis": "estimated"
+        },
+        "fields": {
+          "position": {
+            "value": -1.375,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "moge-2-vitl-normal@cb0e8bb",
+              "plane:plane-3"
+            ]
+          },
+          "thickness": {
+            "value": 0.12,
+            "basis": "default",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "priors:priors-0.1"
+            ]
+          }
+        },
+        "observations": [
+          "plane-3"
+        ],
+        "notes": [
+          "Seen: plane-3, 4.51 m² visible."
+        ]
+      },
+      "wall-right": {
+        "kind": "surface",
+        "presence": {
+          "basis": "estimated"
+        },
+        "fields": {
+          "position": {
+            "value": 1.375,
+            "basis": "estimated",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "moge-2-vitl-normal@cb0e8bb",
+              "plane:plane-4"
+            ]
+          },
+          "thickness": {
+            "value": 0.12,
+            "basis": "default",
+            "sigma": null,
+            "interval": null,
+            "confidence": null,
+            "sources": [
+              "priors:priors-0.1"
+            ]
+          }
+        },
+        "observations": [
+          "plane-4"
+        ],
+        "notes": [
+          "Seen: plane-4, 0.55 m² visible."
+        ]
+      },
+      "unestimated-floor": {
+        "kind": "material",
+        "presence": {
+          "basis": "default"
+        },
+        "fields": {},
+        "observations": [],
+        "notes": [
+          "Material is not estimated in this version; this is a neutral stand-in."
+        ]
+      },
+      "unestimated-wall": {
+        "kind": "material",
+        "presence": {
+          "basis": "default"
+        },
+        "fields": {},
+        "observations": [],
+        "notes": [
+          "Material is not estimated in this version; this is a neutral stand-in."
+        ]
+      },
+      "unestimated-ceiling": {
+        "kind": "material",
+        "presence": {
+          "basis": "default"
+        },
+        "fields": {},
+        "observations": [],
+        "notes": [
+          "Material is not estimated in this version; this is a neutral stand-in."
+        ]
+      },
+      "ambient": {
+        "kind": "light",
+        "presence": {
+          "basis": "default"
+        },
+        "fields": {},
+        "observations": [],
+        "notes": [
+          "Lighting is not estimated in this version."
+        ]
+      }
+    }
+  },
+  "report": {
+    "compilerVersion": "room-shell-0.2.0",
+    "priorsVersion": "priors-0.1",
+    "jobId": "run",
+    "pipelineVersion": "0.1.0+2279f6897a8c",
+    "frame": {
+      "yawDeg": 19.97,
+      "scale": 1,
+      "translation": [
+        0.224,
+        1.846
+      ]
+    },
+    "sides": {
+      "left": {
+        "status": "observed",
+        "planeId": "plane-3",
+        "position": -1.375,
+        "basis": "estimated"
+      },
+      "far": {
+        "status": "observed",
+        "planeId": "plane-2",
+        "position": -2.346,
+        "basis": "estimated"
+      },
+      "right": {
+        "status": "observed",
+        "planeId": "plane-4",
+        "position": 1.375,
+        "basis": "estimated"
+      },
+      "behind": {
+        "status": "omitted",
+        "planeId": null,
+        "position": 2.346,
+        "basis": "default"
+      }
+    },
+    "dimensions": {
+      "width": {
+        "value": 2.75,
+        "basis": "estimated",
+        "sigma": null,
+        "interval": null,
+        "confidence": null,
+        "sources": [
+          "moge-2-vitl-normal@cb0e8bb",
+          "rule:room-shell"
+        ]
+      },
+      "depth": {
+        "value": 4.692,
+        "basis": "default",
+        "sigma": null,
+        "interval": null,
+        "confidence": null,
+        "sources": [
+          "moge-2-vitl-normal@cb0e8bb",
+          "rule:room-shell"
+        ]
+      },
+      "height": {
+        "value": 2.456,
+        "basis": "estimated",
+        "sigma": null,
+        "interval": null,
+        "confidence": null,
+        "sources": [
+          "moge-2-vitl-normal@cb0e8bb",
+          "plane:plane-1"
+        ]
+      }
+    },
+    "planes": {
+      "used": [
+        {
+          "id": "plane-0",
+          "role": "floor",
+          "as": "floor"
+        },
+        {
+          "id": "plane-3",
+          "role": "wall",
+          "as": "wall-left"
+        },
+        {
+          "id": "plane-2",
+          "role": "wall",
+          "as": "wall-far"
+        },
+        {
+          "id": "plane-4",
+          "role": "wall",
+          "as": "wall-right"
+        },
+        {
+          "id": "plane-1",
+          "role": "ceiling",
+          "as": "ceiling"
+        }
+      ],
+      "ignored": [
+        {
+          "id": "plane-5",
+          "role": "other-horizontal",
+          "reason": "a surface of something inside the room, not part of the shell"
+        },
+        {
+          "id": "plane-6",
+          "role": "other-horizontal",
+          "reason": "a surface of something inside the room, not part of the shell"
+        },
+        {
+          "id": "plane-7",
+          "role": "other-vertical",
+          "reason": "a surface of something inside the room, not part of the shell"
+        },
+        {
+          "id": "plane-8",
+          "role": "other-vertical",
+          "reason": "a surface of something inside the room, not part of the shell"
+        }
+      ]
+    },
+    "objects": {
+      "rulesVersion": "object-rules-0.1",
+      "vocabularyVersion": "vocabulary-0.1",
+      "emitted": [],
+      "openings": [],
+      "candidates": [],
+      "notModelled": [],
+      "rejected": []
+    },
+    "materials": {
+      "rulesVersion": "material-rules-0.1",
+      "promptsVersion": null,
+      "assigned": [],
+      "shared": [],
+      "notEstimated": []
+    },
+    "lighting": {
+      "rulesVersion": "light-rules-0.1",
+      "observed": false,
+      "colour": {
+        "source": "default",
+        "hex": "#ffffff",
+        "applied": "#ffffff",
+        "cctK": null,
+        "ceilingCctK": null
+      },
+      "direction": null,
+      "gradient": {
+        "status": "absent",
+        "towardsBrighter": null,
+        "perMetre": null,
+        "rmseLog": null,
+        "reason": "light was not observed"
+      },
+      "daylight": {
+        "openings": [],
+        "direct": null,
+        "sunPatchFraction": null
+      },
+      "lamps": [],
+      "exposure": null
+    },
+    "relationships": {
+      "rulesVersion": "relations-0.1",
+      "count": 0
+    },
+    "problems": [
+      {
+        "code": "fov-disagreement",
+        "stage": "camera",
+        "severity": "warning",
+        "message": "GeoCalib and MoGe-2 disagree on the vertical field of view",
+        "detail": {
+          "geocalib": 60.447,
+          "moge": 69.605
+        }
+      },
+      {
+        "code": "evidence-beyond-wall",
+        "stage": "compile",
+        "severity": "warning",
+        "message": "Surfaces were seen up to 0.3 m beyond the right wall, as through a doorway or a mirror.",
+        "detail": {
+          "side": "right",
+          "metres": 0.298
+        }
+      }
+    ]
+  }
+}

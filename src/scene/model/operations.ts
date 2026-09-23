@@ -1,4 +1,4 @@
-import { findById } from "./queries";
+import { findById, usedMaterialIds } from "./queries";
 import type { Id, Light, Material, Relationship, Scene, SceneObject, Vec3 } from "./types";
 
 /**
@@ -12,23 +12,41 @@ import type { Id, Light, Material, Relationship, Scene, SceneObject, Vec3 } from
 export type SceneOperation =
   | { kind: "move"; objectId: Id; to: Vec3; rotationY: number }
   | { kind: "scale"; objectId: Id; to: Vec3 }
-  | { kind: "restyle"; objectId: Id; slot: string; to: Material }
+  | { kind: "restyle"; objectId: Id; slot: string; to: Material; library?: LibraryEntry }
   | { kind: "replace"; objectId: Id; replacement: SceneObject }
-  | { kind: "add"; object: SceneObject; index: number; relationships?: readonly Relationship[] }
+  | {
+      kind: "add";
+      object: SceneObject;
+      index: number;
+      /** What the object related to, and the light it gave, each with its place in its list. */
+      relationships?: readonly { relationship: Relationship; index: number }[];
+      lights?: readonly { light: Light; index: number }[];
+    }
   | { kind: "remove"; objectId: Id }
-  | { kind: "resurface"; surfaceId: Id; to: Material }
+  | { kind: "resurface"; surfaceId: Id; to: Material; library?: LibraryEntry }
   | { kind: "relight"; lightId: Id; to: LightChange };
 
 export type OperationKind = SceneOperation["kind"];
 
 /**
+ * Carried by the inverse of a restyle or resurface: what the library's entry
+ * of that id was before the change, or null when the change added it. Undo
+ * puts it back, so a finish that was only tried does not stay behind.
+ */
+export interface LibraryEntry {
+  id: Id;
+  was: Material | null;
+}
+
+/**
  * What a `relight` changes. Only the keys present are applied, so the
  * inverse of a change is the same keys carrying their previous values.
- * `on: "auto"` returns a fixture to following the daylight.
+ * `on: "auto"` returns a fixture to following the daylight;
+ * `timeOfDay: "auto"` returns the daylight to the default hour, unset.
  */
 export interface LightChange {
   /** Daylight only. 0 = midday through 1 = evening. */
-  timeOfDay?: number;
+  timeOfDay?: number | "auto";
   /** Artificial only. */
   colorTemperature?: number;
   intensity?: number;
@@ -119,7 +137,7 @@ export function applyOperation(scene: Scene, operation: SceneOperation): Scene {
           ? object
           : { ...object, materials: { ...object.materials, [operation.slot]: operation.to.id } },
       );
-      return withMaterial(next, operation.to);
+      return withEntry(withMaterial(next, operation.to), operation.library);
     }
 
     case "replace": {
@@ -134,17 +152,17 @@ export function applyOperation(scene: Scene, operation: SceneOperation): Scene {
       if (findById(scene.objects, operation.object.id)) return scene;
       const objects = [...scene.objects];
       objects.splice(clampIndex(operation.index, objects.length), 0, operation.object);
-      // Anything the object was known to relate to comes back with it.
-      const restored = (operation.relationships ?? []).filter((r) => !findById(scene.relationships, r.id));
-      return {
-        ...scene,
-        objects,
-        relationships: restored.length ? [...scene.relationships, ...restored] : scene.relationships,
-      };
+      // Anything the object was known to relate to comes back with it, and so
+      // does the light a lamp gives.
+      // Each back where it was in its list, so an undo leaves the scene exactly as it found it.
+      const relationships = insertAt(scene.relationships, (operation.relationships ?? []).map((r) => ({ item: r.relationship, index: r.index })));
+      const lights = insertAt(scene.lights, (operation.lights ?? []).map((l) => ({ item: l.light, index: l.index })));
+      return { ...scene, objects, relationships, lights };
     }
 
     case "remove": {
       if (!findById(scene.objects, operation.objectId)) return scene;
+      const gone = (l: Light) => l.kind === "artificial" && l.fixtureId === operation.objectId;
       return {
         ...scene,
         objects: scene.objects.filter((o) => o.id !== operation.objectId),
@@ -152,6 +170,8 @@ export function applyOperation(scene: Scene, operation: SceneOperation): Scene {
         relationships: scene.relationships.filter(
           (r) => r.subjectId !== operation.objectId && r.objectId !== operation.objectId,
         ),
+        // A lamp that is taken away takes its light: no light is left without a fixture.
+        lights: scene.lights.some(gone) ? scene.lights.filter((l) => !gone(l)) : scene.lights,
       };
     }
 
@@ -167,7 +187,7 @@ export function applyOperation(scene: Scene, operation: SceneOperation): Scene {
                 s.id === operation.surfaceId ? { ...s, materialId: operation.to.id } : s,
               ),
             };
-      return withMaterial(next, operation.to);
+      return withEntry(withMaterial(next, operation.to), operation.library);
     }
 
     case "relight": {
@@ -212,7 +232,8 @@ export function invertOperation(scene: Scene, operation: SceneOperation): SceneO
       const object = findById(scene.objects, operation.objectId);
       const previous = object && findById(scene.materials, object.materials[operation.slot] ?? "");
       if (!object || !previous) return null;
-      return { kind: "restyle", objectId: object.id, slot: operation.slot, to: previous };
+      const library = entryBefore(scene, operation.to, previous);
+      return { kind: "restyle", objectId: object.id, slot: operation.slot, to: previous, ...(library && { library }) };
     }
 
     case "replace": {
@@ -235,8 +256,13 @@ export function invertOperation(scene: Scene, operation: SceneOperation): SceneO
         index,
         // Removing an object drops what the model knew about it; putting it
         // back has to put that knowledge back too.
-        relationships: scene.relationships.filter(
-          (r) => r.subjectId === operation.objectId || r.objectId === operation.objectId,
+        relationships: scene.relationships.flatMap((relationship, at) =>
+          relationship.subjectId === operation.objectId || relationship.objectId === operation.objectId
+            ? [{ relationship, index: at }]
+            : [],
+        ),
+        lights: scene.lights.flatMap((light, at) =>
+          light.kind === "artificial" && light.fixtureId === operation.objectId ? [{ light, index: at }] : [],
         ),
       };
     }
@@ -245,7 +271,8 @@ export function invertOperation(scene: Scene, operation: SceneOperation): SceneO
       const surface = findById(scene.surfaces, operation.surfaceId);
       const previous = surface && findById(scene.materials, surface.materialId);
       if (!surface || !previous) return null;
-      return { kind: "resurface", surfaceId: surface.id, to: previous };
+      const library = entryBefore(scene, operation.to, previous);
+      return { kind: "resurface", surfaceId: surface.id, to: previous, ...(library && { library }) };
     }
 
     case "relight": {
@@ -253,7 +280,8 @@ export function invertOperation(scene: Scene, operation: SceneOperation): SceneO
       if (!light) return null;
       const to: LightChange = {};
       if (operation.to.timeOfDay !== undefined && light.kind === "daylight") {
-        to.timeOfDay = light.timeOfDay ?? DEFAULT_TIME_OF_DAY;
+        // An hour nobody set goes back to being unset, not to the default written down.
+        to.timeOfDay = light.timeOfDay ?? "auto";
       }
       if (light.kind === "artificial") {
         if (operation.to.colorTemperature !== undefined) to.colorTemperature = light.colorTemperature;
@@ -273,6 +301,13 @@ export function timeOfDay(scene: Scene): number {
   const daylight = scene.lights.find((l) => l.kind === "daylight");
   return daylight?.timeOfDay ?? DEFAULT_TIME_OF_DAY;
 }
+
+/**
+ * The hour in words, midday through night. Beside the hour's own meaning,
+ * so a command and a design proposal cannot name the same hour differently.
+ */
+export const hourName = (t: number) =>
+  t < 0.12 ? "midday" : t < 0.35 ? "early afternoon" : t < 0.6 ? "late afternoon" : t < 0.8 ? "evening" : "night";
 
 // ---------------------------------------------------------------------------
 // Internals
@@ -310,15 +345,15 @@ function sameLight(a: Light, b: Light) {
 /**
  * Add a material to the scene's library, or replace the entry of that id.
  *
- * The library is a library: a finish that stops being used stays in it, so
- * undoing a restyle leaves the material that was tried behind. Nothing
- * counts it — `usedMaterialIds` is what the summary and the renderer read —
- * and keeping it is what makes a restyle exactly reversible, because the
- * entry an inverse needs is always still there.
+ * A restyle writes its finish into the library; its inverse carries the
+ * entry as it was before (`LibraryEntry`), so undo takes a finish that was
+ * only tried back out and the scene returns exactly to what it was.
  */
 function withMaterial(scene: Scene, material: Material): Scene {
   const existing = findById(scene.materials, material.id);
-  if (existing === material) return scene;
+  // Equal in every field is unchanged: a number field that applies its value
+  // while typing and again on Enter must not leave an undo step that does nothing.
+  if (existing && sameMaterial(existing, material)) return scene;
   return {
     ...scene,
     materials: existing
@@ -327,9 +362,42 @@ function withMaterial(scene: Scene, material: Material): Scene {
   };
 }
 
+/**
+ * The library entry a finish change overwrites, when it overwrites one: the
+ * id of the new finish, and what stood under that id before (null when the
+ * change adds it). Undefined when the change leaves the library's other
+ * entries as they were — the new finish is the old one re-edited, or is
+ * already in the library exactly as given.
+ */
+function entryBefore(scene: Scene, to: Material, previous: Material): LibraryEntry | undefined {
+  if (to.id === previous.id) return undefined;
+  const existing = findById(scene.materials, to.id);
+  if (existing && sameMaterial(existing, to)) return undefined;
+  return { id: to.id, was: existing ?? null };
+}
+
+/** Put a library entry back as it was, dropping it if it was not there and nothing uses it. */
+function withEntry(scene: Scene, entry: LibraryEntry | undefined): Scene {
+  if (!entry) return scene;
+  if (entry.was) return withMaterial(scene, entry.was);
+  if (!findById(scene.materials, entry.id) || usedMaterialIds(scene).has(entry.id)) return scene;
+  return { ...scene, materials: scene.materials.filter((m) => m.id !== entry.id) };
+}
+
+function sameMaterial(a: Material, b: Material) {
+  if (a === b) return true;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof Material>;
+  for (const key of keys) if (a[key] !== b[key]) return false;
+  return true;
+}
+
 function relit(light: Light, change: LightChange): Light {
   if (light.kind === "daylight") {
-    return change.timeOfDay === undefined ? light : { ...light, timeOfDay: change.timeOfDay };
+    if (change.timeOfDay === undefined) return light;
+    if (change.timeOfDay !== "auto") return { ...light, timeOfDay: change.timeOfDay };
+    const next = { ...light };
+    delete next.timeOfDay;
+    return next;
   }
   if (light.kind !== "artificial") return light;
   const next = { ...light };
@@ -350,3 +418,12 @@ function relit(light: Light, change: LightChange): Light {
 }
 
 const clampIndex = (index: number, length: number) => Math.min(Math.max(index, 0), length);
+
+/** Put items back at their indices (lowest first), skipping any whose id is already there. */
+function insertAt<T extends { id: Id }>(list: readonly T[], items: readonly { item: T; index: number }[]): readonly T[] {
+  const missing = items.filter(({ item }) => !findById(list, item.id));
+  if (missing.length === 0) return list;
+  const next = [...list];
+  for (const { item, index } of [...missing].sort((a, b) => a.index - b.index)) next.splice(clampIndex(index, next.length), 0, item);
+  return next;
+}

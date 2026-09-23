@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMetres, summarizeScene } from "@/scene/model/summary";
+import { useWorkspaceSource } from "./sourceContext";
 import { useWorkspace } from "./state/store";
 import styles from "./SceneTitleBlock.module.css";
 
@@ -14,11 +15,22 @@ import styles from "./SceneTitleBlock.module.css";
  */
 export function SceneTitleBlock() {
   const scene = useWorkspace((s) => s.scene);
+  const source = useWorkspaceSource();
   const summary = summarizeScene(scene);
   const { width, depth, height } = summary.dimensions;
 
   return (
     <dl className={styles.block}>
+      {source && (
+        <div className={styles.row} data-photo>
+          <dt>Photo</dt>
+          <dd>
+            {/* The person's own photograph, served from this machine. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={source.photograph} alt="The photograph this room was reconstructed from" />
+          </dd>
+        </div>
+      )}
       <div className={styles.row}>
         <dt>Room</dt>
         <dd>{summary.roomLabel}</dd>
@@ -27,6 +39,11 @@ export function SceneTitleBlock() {
         <dt>Extent</dt>
         <dd>
           {formatMetres(width)} × {formatMetres(depth)} × {formatMetres(height)}
+          {source && (
+            <span className={styles.qualifier}>
+              {source.scale === "calibrated" ? "calibrated to your measurement" : "estimated, not calibrated"}
+            </span>
+          )}
         </dd>
       </div>
       <div className={styles.row}>

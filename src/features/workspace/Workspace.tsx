@@ -15,6 +15,7 @@ import { MaterialsPanel } from "./panels/MaterialsPanel";
 import { ObjectsPanel } from "./panels/ObjectsPanel";
 import { StageProvider, type StageHandle } from "./scene/StageContext";
 import { useStage } from "./scene/useStage";
+import { SourceProvider, type WorkspaceSource } from "./sourceContext";
 import { useSelectedObject, useStore, useWorkspace, WorkspaceProvider, WorkspaceStore } from "./state/store";
 import { ToolRail } from "./ToolRail";
 import { TopBar } from "./TopBar";
@@ -30,6 +31,8 @@ interface WorkspaceProps {
   palette: readonly Material[];
   /** Supply one when a model is wired up. Defaults to none. */
   interpreter?: CommandInterpreter;
+  /** The photograph a reconstructed room came from. None for the demonstration room. */
+  source?: WorkspaceSource;
 }
 
 /**
@@ -40,11 +43,13 @@ interface WorkspaceProps {
  * it, and every change — dragged, typed, or one day spoken — takes the
  * same route through a scene operation.
  */
-export function Workspace({ scene, name, palette, interpreter }: WorkspaceProps) {
+export function Workspace({ scene, name, palette, interpreter, source }: WorkspaceProps) {
   const [store] = useState(() => new WorkspaceStore(scene, name, interpreter ?? notConnected, palette));
   return (
     <WorkspaceProvider value={store}>
-      <Shell />
+      <SourceProvider value={source ?? null}>
+        <Shell />
+      </SourceProvider>
     </WorkspaceProvider>
   );
 }

@@ -5,7 +5,10 @@ import { formatMetres } from "@/scene/model/summary";
 import type { SceneObject, Surface, Vec3 } from "@/scene/model/types";
 import { Field, NumberField, Reading } from "./controls/Controls";
 import { Panel, Section } from "./panels/Panel";
+import type { EntityEvidence } from "@/scene/compile/evidence";
+import { describeFinish } from "./reconstruction/describe";
 import { useStageHandle } from "./scene/StageContext";
+import { useWorkspaceSource } from "./sourceContext";
 import { moveObject, removeObject, resizeObject, rotateObject } from "./state/edits";
 import { useStore, useWorkspace } from "./state/store";
 import styles from "./Inspector.module.css";
@@ -29,6 +32,12 @@ export function Inspector({ object }: { object: SceneObject }) {
   const [w, h, d] = object.dimensions;
   const rotation = (object.transform.rotation[1] * 180) / Math.PI;
   const support = describeSupport(object, scene.surfaces);
+  const entities = useWorkspaceSource()?.evidence?.entities;
+  const seen = describeEvidence(entities?.[object.id]);
+  const finishes = Object.entries(object.materials).flatMap(([slot, id]) => {
+    const text = describeFinish(findById(scene.materials, id), entities?.[id]);
+    return text ? [{ slot, text }] : [];
+  });
   /** Height is fixed by whatever carries the piece, unless it hangs. */
   const heightIsFree = object.support.kind === "wall" || object.support.kind === "ceiling";
 
@@ -67,8 +76,24 @@ export function Inspector({ object }: { object: SceneObject }) {
             label="Size"
             value={`${formatMetres(w * sx)} × ${formatMetres(d * sz)} × ${formatMetres(h * sy)}`}
           />
+          {seen && (
+            <>
+              <Reading label="Seen" value={seen.detected} />
+              <Reading label="As found" value={seen.sizes} />
+            </>
+          )}
         </dl>
       </Section>
+
+      {finishes.length > 0 && (
+        <Section title="Finish found">
+          <dl>
+            {finishes.map((f) => (
+              <Reading key={f.slot} label={readable(f.slot)} value={f.text} />
+            ))}
+          </dl>
+        </Section>
+      )}
 
       <Section title="Placement">
         <div className={styles.stack}>
@@ -196,6 +221,31 @@ export function Inspector({ object }: { object: SceneObject }) {
       </Section>
     </Panel>
   );
+}
+
+/**
+ * For a reconstructed piece: what the detector saw, and which of its sizes
+ * came from the photograph and which are typical ones filling in what the
+ * camera could not see. Describes the piece as it was found, before edits.
+ */
+function describeEvidence(entity: EntityEvidence | undefined) {
+  if (!entity || entity.kind !== "object") return null;
+  const category = entity.fields.category;
+  const detected = category?.note ? `In your photograph (${category.note})` : "In your photograph";
+  const axes = [
+    ["width", "dimensions.0"],
+    ["height", "dimensions.1"],
+    ["depth", "dimensions.2"],
+  ] as const;
+  const measured = axes.filter(([, key]) => ["estimated", "calibrated"].includes(entity.fields[key]?.basis ?? "")).map(([name]) => name);
+  const typical = axes.filter(([, key]) => entity.fields[key]?.basis === "inferred").map(([name]) => name);
+  const sizes = [
+    measured.length ? `${measured.join(", ")} from the photo` : null,
+    typical.length ? `${typical.join(", ")} typical (not seen)` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return { detected, sizes };
 }
 
 /** What holds the piece up, in the words a person would use. */

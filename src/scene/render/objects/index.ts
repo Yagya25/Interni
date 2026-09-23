@@ -3,6 +3,7 @@ import { block } from "../geometry";
 import { group, part, type ObjectBuilder } from "./common";
 import { artwork, basket, books, curtain, plant, rug, vase } from "./decor";
 import { floorLamp, pendantLamp } from "./fixtures";
+import { bed, bookshelf, cabinet, chair, desk, diningTable, mediaConsole, television } from "./furniture";
 import { armchair, bench, cushions, loungeChair, ottoman, sofa } from "./seating";
 import { coffeeTable, sideTable } from "./tables";
 
@@ -37,6 +38,14 @@ const builders: Partial<Record<ObjectCategory, ObjectBuilder>> = {
   books,
   basket,
   curtain,
+  chair,
+  "dining-table": diningTable,
+  desk,
+  cabinet,
+  bed,
+  television,
+  "media-console": mediaConsole,
+  bookshelf,
 };
 
 export const builderFor = (category: ObjectCategory): ObjectBuilder => builders[category] ?? boundingVolume;

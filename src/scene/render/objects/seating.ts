@@ -1,6 +1,7 @@
 import { ExtrudeGeometry, Shape } from "three";
 import { block, cylinder, merge, metricUVs } from "../geometry";
 import { group, part, type ObjectBuilder } from "./common";
+import { param } from "./furniture";
 
 /** Tapered timber leg. */
 const leg = (h: number, r = 0.018) => cylinder(r * 0.75, r, h, 12);
@@ -14,8 +15,9 @@ export const sofa: ObjectBuilder = ({ object, material }) => {
 
   const legH = 0.1;
   const armW = 0.16;
-  const seatH = 0.42;
   const baseTop = legH + 0.2;
+  // A reconstruction may have measured the seat; otherwise the builder's own.
+  const seatH = Math.min(Math.max(param(object.metadata, "seatHeight", 0.42), baseTop + 0.06), h - 0.15);
   const innerW = w - armW * 2;
   const seats = 3;
   const seatW = innerW / seats;
@@ -120,12 +122,13 @@ export const armchair: ObjectBuilder = ({ object, material }) => {
   const legs = material("legs", { sectionCaps: true });
   const legH = 0.09;
   const armW = 0.17;
+  const seatTop = Math.min(Math.max(param(object.metadata, "seatHeight", legH + 0.38), legH + 0.28), h - 0.15);
   const body = merge([
     block(w, 0.24, d, 0.05).translate(0, legH, 0),
     block(armW, 0.62 - legH, d - 0.02, 0.07).translate(-(w - armW) / 2, legH, 0),
     block(armW, 0.62 - legH, d - 0.02, 0.07).translate((w - armW) / 2, legH, 0),
     block(w - 0.04, h - legH, 0.22, 0.08).translate(0, legH, -(d - 0.22) / 2),
-    block(w - armW * 2 - 0.02, 0.16, d - 0.26, 0.06).translate(0, legH + 0.22, 0.1),
+    block(w - armW * 2 - 0.02, 0.16, d - 0.26, 0.06).translate(0, seatTop - 0.16, 0.1),
   ]);
   const legGeo = merge(
     [

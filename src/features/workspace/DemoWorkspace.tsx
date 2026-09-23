@@ -2,16 +2,15 @@
 
 import { demo } from "@/demo";
 import { demoLibrary } from "@/demo/materials";
-import { createDemoInterpreter } from "./ai/demoInterpreter";
+import { createRoomInterpreter } from "./ai/roomInterpreter";
 import { Workspace } from "./Workspace";
 
 /**
- * The demonstration room comes with the rule-based interpreter, which
- * needs the scene as it was opened so that "reset the room" has something
- * to return to. A reconstructed room will arrive with whatever interpreter
- * is connected then.
+ * The demonstration room comes with the room interpreter, which needs the
+ * scene as it was opened so that "reset the room" has something to return
+ * to. A reconstructed room gets the same interpreter, built on its own scene.
  */
-const interpreter = createDemoInterpreter(demo.scene);
+const interpreter = createRoomInterpreter(demo.scene);
 
 /**
  * The demonstration room, opened as a working space.

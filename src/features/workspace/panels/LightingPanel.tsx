@@ -3,6 +3,8 @@
 import { timeOfDay } from "@/scene/model/operations";
 import type { ArtificialLight } from "@/scene/model/types";
 import { Field, NumberField, RangeField, Reading, Segmented } from "../controls/Controls";
+import { describeAmbient, describeDaylight, describeLamp } from "../reconstruction/describe";
+import { useWorkspaceSource } from "../sourceContext";
 import { changeLamp, setTimeOfDay } from "../state/edits";
 import { useStore, useWorkspace } from "../state/store";
 import { Note, Panel, Section } from "./Panel";
@@ -45,6 +47,9 @@ export function LightingPanel() {
   const lamps = scene.lights.filter((l): l is ArtificialLight => l.kind === "artificial");
   const ambient = scene.lights.find((l) => l.kind === "ambient");
   const hour = timeOfDay(scene);
+  const entities = useWorkspaceSource()?.evidence?.entities;
+  const found = describeDaylight(daylight && entities?.[daylight.id]);
+  const bounce = ambient && describeAmbient(entities?.[ambient.id]);
 
   return (
     <Panel
@@ -87,6 +92,8 @@ export function LightingPanel() {
             </Field>
             <dl>
               <Reading label="Through" value={`${daylight.openingIds.length} openings`} />
+              {found.kind && <Reading label="As found" value={found.kind} />}
+              {found.from && <Reading label="Comes from" value={found.from} />}
             </dl>
           </>
         )}
@@ -94,6 +101,11 @@ export function LightingPanel() {
 
       {lamps.map((lamp) => (
         <Section key={lamp.id} title={lamp.label}>
+          {describeLamp(entities?.[lamp.id]) && (
+            <dl>
+              <Reading label="As found" value={describeLamp(entities?.[lamp.id])!} />
+            </dl>
+          )}
           <div className={styles.stack}>
             <Field label="Switch">
               <Segmented
@@ -144,6 +156,11 @@ export function LightingPanel() {
 
       {ambient && (
         <Section title="Ambient">
+          {bounce && (
+            <dl>
+              <Reading label="Colour" value={bounce} />
+            </dl>
+          )}
           <Note>
             The room’s bounce light. It is part of the model but is not adjustable on its own — it
             follows the hour along with everything else.

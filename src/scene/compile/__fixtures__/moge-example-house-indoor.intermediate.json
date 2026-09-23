@@ -1,0 +1,1103 @@
+{
+ "schemaVersion": 1,
+ "jobId": "run",
+ "createdAt": "2026-09-22T01:50:34Z",
+ "pipeline": {
+  "version": "0.1.0+2279f6897a8c",
+  "worker": {
+   "version": "0.1.0",
+   "codeSha256": "2279f6897a8c195dcca845a3555dac35ca1145f5d65c183d99fb0fed6f9a013e"
+  },
+  "models": [
+   {
+    "id": "geocalib-pinhole",
+    "role": "camera",
+    "repo": "https://github.com/cvg/GeoCalib",
+    "codeRevision": "97b8968e7798a66bf04fcf791fb535624241bda7",
+    "codeLicence": "Apache-2.0",
+    "weights": {
+     "source": "https://github.com/cvg/GeoCalib/releases/download/v1.0/geocalib-pinhole.tar",
+     "revision": "release v1.0",
+     "file": "geocalib-pinhole.tar",
+     "sha256": "86d6aeacd8bbd974c59ce39f61854e00d36911c732ad89be471476fd708722ac",
+     "licence": "CC-BY-4.0"
+    },
+    "attribution": "GeoCalib: Learning Single-image Calibration with Geometric Optimization. A. Veicht, P.-E. Sarlin, P. Lindenberger, M. Pollefeys. ECCV 2024. Weights CC BY 4.0."
+   },
+   {
+    "id": "moge-2-vitl-normal",
+    "role": "geometry",
+    "repo": "https://github.com/microsoft/MoGe",
+    "codeRevision": "07444410f1e33f402353b99d6ccd26bd31e469e8",
+    "codeLicence": "MIT (bundled DINOv2 code Apache-2.0)",
+    "weights": {
+     "source": "https://huggingface.co/Ruicheng/moge-2-vitl-normal",
+     "revision": "cb0e8bbd6b1e243589717c78e750b1ba4c093acf",
+     "file": "moge-2-vitl-normal.pt",
+     "sha256": "280741fd09bc3f403ccff9967784c2a391b52d2c0742ae3efdb21d9f90cc1a01",
+     "licence": "MIT"
+    },
+    "attribution": null
+   }
+  ],
+  "runtime": {
+   "python": "3.12.14",
+   "torch": "2.14.0+cu130",
+   "cuda": "13.0",
+   "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+   "deviceMemoryMb": 8188,
+   "driver": "610.88"
+  },
+  "settings": {
+   "maxEdge": 1600,
+   "mogeResolutionLevel": 9,
+   "mogeWeightsDtype": "float16",
+   "fovPolicy": "auto",
+   "fovSigmaMaxDeg": 5.0
+  },
+  "seeds": {
+   "geocalibNmf": 0,
+   "ransac": null,
+   "note": "layout has no randomness: histogram modes seed least-squares fits"
+  }
+ },
+ "diagnostics": {
+  "warnings": [
+   {
+    "code": "fov-disagreement",
+    "stage": "camera",
+    "severity": "warning",
+    "message": "GeoCalib and MoGe-2 disagree on the vertical field of view",
+    "detail": {
+     "geocalib": 60.447,
+     "moge": 69.605
+    }
+   }
+  ],
+  "errors": [],
+  "stages": {
+   "intake": {
+    "status": "succeeded"
+   },
+   "camera": {
+    "status": "succeeded"
+   },
+   "geometry": {
+    "status": "succeeded"
+   },
+   "segmentation": {
+    "status": "skipped",
+    "problem": "not-in-milestone"
+   },
+   "layout": {
+    "status": "succeeded"
+   },
+   "objects": {
+    "status": "skipped",
+    "problem": "not-in-milestone"
+   },
+   "appearance": {
+    "status": "skipped",
+    "problem": "not-in-milestone"
+   }
+  },
+  "timingsMs": {
+   "intake": 144.4,
+   "cameraLoad": 3156.4,
+   "camera": 2213.0,
+   "geometryLoad": 9398.0,
+   "geometryNative": 948.3,
+   "layout": 1531.2,
+   "total": 18437.9
+  },
+  "peakGpuMemoryByStageMb": {
+   "cameraLoad": 111.4,
+   "camera": 431.9,
+   "geometryLoad": 643.2,
+   "geometryNative": 1317.0
+  },
+  "peakGpuMemoryMb": 1317.0,
+  "memoryNote": "torch.cuda.max_memory_allocated per stage; excludes the CUDA context",
+  "status": "degraded"
+ },
+ "source": {
+  "photographId": "3eb519bc68d4262a",
+  "inputSha256": "3eb519bc68d4262af0c68166ca69e786cac5f6656a1083f4c585c4a94005c859",
+  "inputBytes": 322353,
+  "inputFormat": "jpeg",
+  "orientationApplied": 1,
+  "originalWidth": 1500,
+  "originalHeight": 1000,
+  "width": 1500,
+  "height": 1000,
+  "downscale": 1.0,
+  "exif": {},
+  "canonical": {
+   "key": "source.jpg",
+   "format": "jpeg",
+   "width": 1500,
+   "height": 1000,
+   "encoding": "sRGB JPEG q92, EXIF-oriented, all metadata removed",
+   "sha256": "2c0f739ff7895e63bd9c7ab2c46c6639bdf157b66cbc206c9d59eb7f513cc841"
+  },
+  "stats": {
+   "meanLuminance": 0.339,
+   "luminanceP2": 0.001,
+   "luminanceP98": 0.7164,
+   "laplacianVariance": 973.8
+  }
+ },
+ "views": [
+  {
+   "viewId": "view-0",
+   "photographId": "3eb519bc68d4262a",
+   "camera": {
+    "model": "pinhole",
+    "intrinsics": {
+     "fx": {
+      "value": 719.3355,
+      "basis": "estimated",
+      "sigma": null,
+      "interval": null,
+      "confidence": null,
+      "sources": [
+       "moge-2-vitl-normal@07444410"
+      ]
+     },
+     "fy": {
+      "value": 719.3355,
+      "basis": "estimated",
+      "sigma": null,
+      "interval": null,
+      "confidence": null,
+      "sources": [
+       "moge-2-vitl-normal@07444410"
+      ]
+     },
+     "cx": {
+      "value": 750.0,
+      "basis": "default",
+      "sigma": null,
+      "interval": null,
+      "confidence": null,
+      "sources": [
+       "assumption:principal-point-at-centre"
+      ]
+     },
+     "cy": {
+      "value": 500.0,
+      "basis": "default",
+      "sigma": null,
+      "interval": null,
+      "confidence": null,
+      "sources": [
+       "assumption:principal-point-at-centre"
+      ]
+     }
+    },
+    "distortion": {
+     "model": "none"
+    },
+    "upCam": {
+     "value": [
+      0.001722,
+      -0.999972,
+      -0.007281
+     ],
+     "basis": "estimated",
+     "sigma": 1.06288,
+     "interval": null,
+     "confidence": null,
+     "sources": [
+      "geocalib-pinhole@97b8968"
+     ],
+     "note": "unit up vector, camera-opencv frame; sigma in degrees"
+    },
+    "roll": {
+     "value": -0.0986,
+     "basis": "estimated",
+     "sigma": 0.608433,
+     "interval": null,
+     "confidence": null,
+     "sources": [
+      "geocalib-pinhole@97b8968"
+     ],
+     "note": "GeoCalib convention, degrees"
+    },
+    "pitch": {
+     "value": -0.4172,
+     "basis": "estimated",
+     "sigma": 1.058132,
+     "interval": null,
+     "confidence": null,
+     "sources": [
+      "geocalib-pinhole@97b8968"
+     ],
+     "note": "GeoCalib convention, degrees"
+    },
+    "pitchUp": {
+     "value": -0.4172,
+     "basis": "estimated",
+     "sigma": 1.058132,
+     "interval": null,
+     "confidence": null,
+     "sources": [
+      "geocalib-pinhole@97b8968"
+     ],
+     "note": "asin(upCam.z): positive when the camera looks up, degrees"
+    },
+    "verticalFov": {
+     "value": 69.6052,
+     "basis": "estimated",
+     "sigma": null,
+     "interval": null,
+     "confidence": null,
+     "sources": [
+      "moge-2-vitl-normal@07444410"
+     ],
+     "note": "used for geometry; source moge: GeoCalib's own vFOV sigma 16.29 deg > 5.0 deg: focal weakly determined, so MoGe-2's estimate from the dense geometry is used"
+    },
+    "candidates": {
+     "geocalib": {
+      "verticalFov": {
+       "value": 60.4466,
+       "basis": "estimated",
+       "sigma": 16.294241,
+       "interval": null,
+       "confidence": null,
+       "sources": [
+        "geocalib-pinhole@97b8968"
+       ]
+      },
+      "focalPx": {
+       "value": 858.284,
+       "basis": "estimated",
+       "sigma": 198.408386,
+       "interval": null,
+       "confidence": null,
+       "sources": [
+        "geocalib-pinhole@97b8968"
+       ]
+      }
+     },
+     "moge": {
+      "verticalFov": {
+       "value": 69.6052,
+       "basis": "estimated",
+       "sigma": null,
+       "interval": null,
+       "confidence": null,
+       "sources": [
+        "moge-2-vitl-normal@07444410"
+       ]
+      }
+     },
+     "exif": null
+    },
+    "fovSource": "moge",
+    "agreement": {
+     "geocalibVsMoge": -9.159,
+     "geocalibVsExif": null,
+     "mogeVsExif": null
+    }
+   },
+   "geometry": {
+    "depth": {
+     "key": "depth.png",
+     "format": "png16-mm",
+     "width": 1500,
+     "height": 1000,
+     "encoding": "uint16 millimetres along the optical axis; 0 = invalid",
+     "sha256": "8d552e50648e400960dca6b007f89b5592d06e99e8a546ae751fbac3b5fcd83d"
+    },
+    "normals": {
+     "key": "normals.png",
+     "format": "png8-normal",
+     "width": 1500,
+     "height": 1000,
+     "encoding": "RGB = (n + 1) / 2 * 255, camera-opencv frame, facing the camera; 0,0,0 = invalid",
+     "sha256": "a9445e8bc3637154ca4c2a88192d1d7dc4d74fa1e5652ceb807f099828919aec"
+    },
+    "validMask": {
+     "key": "valid-mask.png",
+     "format": "png8-mask",
+     "width": 1500,
+     "height": 1000,
+     "encoding": "255 = valid",
+     "sha256": "a8eadbdd1ec01711455dfe6080bc8695e54218549cd9a2d5be067ae7f03bf210"
+    },
+    "depthPreview": {
+     "key": "depth-preview.png",
+     "format": "png8-preview",
+     "width": 1500,
+     "height": 1000,
+     "encoding": "colour-mapped depth, near = red, far = blue; for people, not data",
+     "sha256": "b52f26c74bb3f9130339a26e74233b90161fc6c8da214d1bc9400c8566baa9f7"
+    },
+    "planeLabels": {
+     "key": "planes.png",
+     "format": "png8-labels",
+     "width": 1500,
+     "height": 1000,
+     "encoding": "uint8 plane label per pixel (plane.label), 0 = no plane",
+     "sha256": "3f3fc60e1ecebb6fec673ae67962b7fd47dd6ecb2c965616df1da5fb46cd0c58"
+    },
+    "planesPreview": {
+     "key": "planes-preview.png",
+     "format": "png8-preview",
+     "width": 1500,
+     "height": 1000,
+     "encoding": "photo tinted by fitted plane role; for people, not data",
+     "sha256": "88c62a2cb9a6ee28937a5c277f9697355cfb2606e27758a7d9c8c86114d0f90a"
+    },
+    "scale": {
+     "basis": "estimated",
+     "source": "moge-2-vitl-normal metric scale head",
+     "logSigma": null,
+     "note": "the error of the global scale has not been measured; it needs the tape-measured evaluation set"
+    },
+    "stats": {
+     "validFraction": 1.0,
+     "depthRange": [
+      1.0019,
+      4.2064
+     ],
+     "depthMedian": 2.1266
+    },
+    "fovUsedDeg": 69.6052,
+    "mogeVerticalFovDeg": 69.6052
+   },
+   "cameraToCapture": [
+    0.99999149,
+    -0.00412405,
+    7.642e-05,
+    0.0,
+    -0.00412476,
+    -0.99981986,
+    0.0185268,
+    0.0,
+    0.0,
+    -0.01852696,
+    -0.99982836,
+    0.0,
+    0.0,
+    1.1862466,
+    0.0,
+    1.0
+   ],
+   "stages": {
+    "intake": {
+     "status": "succeeded"
+    },
+    "camera": {
+     "status": "succeeded"
+    },
+    "geometry": {
+     "status": "succeeded"
+    },
+    "segmentation": {
+     "status": "skipped",
+     "problem": "not-in-milestone"
+    },
+    "layout": {
+     "status": "succeeded"
+    },
+    "objects": {
+     "status": "skipped",
+     "problem": "not-in-milestone"
+    },
+    "appearance": {
+     "status": "skipped",
+     "problem": "not-in-milestone"
+    }
+   }
+  }
+ ],
+ "world": {
+  "frame": "capture",
+  "up": {
+   "source": "floor-plane",
+   "gravityAgreementDeg": 0.7263
+  },
+  "gravityAgreementDeg": 0.7263,
+  "manhattan": {
+   "yawDeg": 19.8959,
+   "alignedAreaFraction": 0.7537,
+   "note": "share of vertical surface area within +-10 deg of the four axes (measured, not a score)"
+  },
+  "cameraHeight": {
+   "value": 1.1862,
+   "basis": "estimated",
+   "sigma": null,
+   "interval": null,
+   "confidence": null,
+   "sources": [
+    "moge-2-vitl-normal",
+    "rule:floor-plane"
+   ],
+   "note": "metres above the fitted floor, before calibration"
+  },
+  "planes": [
+   {
+    "id": "plane-0",
+    "role": "floor",
+    "label": 1,
+    "normal": [
+     0.0,
+     1.0,
+     0.0
+    ],
+    "offset": 0.0,
+    "inliers": 137484,
+    "supportFraction": 0.091656,
+    "visibleArea": 2.9461,
+    "rmsResidual": 0.005807,
+    "distanceFromCamera": 1.186247,
+    "centroid": [
+     1.260433,
+     -0.000812,
+     -2.554741
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       1.0,
+       0.0,
+       0.0
+      ],
+      "v": [
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "min": [
+      -0.06675,
+      -3.664922
+     ],
+     "max": [
+      2.189164,
+      -1.646427
+     ]
+    },
+    "heightRange": [
+     -0.016174,
+     0.010978
+    ],
+    "pixelBox": [
+     697,
+     693,
+     1500,
+     1000
+    ],
+    "touchesImageBorder": {
+     "left": false,
+     "right": true,
+     "top": false,
+     "bottom": true
+    },
+    "method": "histogram mode + least-squares refinement"
+   },
+   {
+    "id": "plane-1",
+    "role": "ceiling",
+    "label": 2,
+    "normal": [
+     -0.006485,
+     -0.999271,
+     -0.037633
+    ],
+    "offset": 2.349923,
+    "inliers": 188158,
+    "supportFraction": 0.125439,
+    "visibleArea": 6.5678,
+    "rmsResidual": 0.006053,
+    "distanceFromCamera": 1.164542,
+    "centroid": [
+     0.882607,
+     2.455704,
+     -2.908245
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       1.0,
+       0.0,
+       0.0
+      ],
+      "v": [
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "min": [
+      -0.886347,
+      -4.027148
+     ],
+     "max": [
+      2.45537,
+      -1.861875
+     ]
+    },
+    "heightRange": [
+     2.408088,
+     2.495313
+    ],
+    "pixelBox": [
+     351,
+     0,
+     1500,
+     268
+    ],
+    "touchesImageBorder": {
+     "left": false,
+     "right": true,
+     "top": true,
+     "bottom": false
+    },
+    "method": "histogram mode + least-squares refinement"
+   },
+   {
+    "id": "plane-2",
+    "role": "wall",
+    "label": 3,
+    "normal": [
+     -0.321591,
+     -0.0,
+     0.946879
+    ],
+    "offset": 4.188768,
+    "inliers": 206991,
+    "supportFraction": 0.137994,
+    "visibleArea": 6.1873,
+    "rmsResidual": 0.018513,
+    "distanceFromCamera": 4.188768,
+    "centroid": [
+     1.568219,
+     1.407378,
+     -3.89003
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       0.946879,
+       -0.0,
+       0.321591
+      ],
+      "v": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     "min": [
+      -1.355676,
+      0.033237
+     ],
+     "max": [
+      1.538497,
+      2.449061
+     ]
+    },
+    "heightRange": [
+     0.074286,
+     2.429651
+    ],
+    "pixelBox": [
+     747,
+     220,
+     1351,
+     725
+    ],
+    "touchesImageBorder": {
+     "left": false,
+     "right": false,
+     "top": false,
+     "bottom": false
+    },
+    "method": "histogram mode + least-squares refinement",
+    "directionDeg": 108.5
+   },
+   {
+    "id": "plane-3",
+    "role": "wall",
+    "label": 4,
+    "normal": [
+     0.927543,
+     -0.0,
+     0.373716
+    ],
+    "offset": 1.676606,
+    "inliers": 334204,
+    "supportFraction": 0.222803,
+    "visibleArea": 4.5106,
+    "rmsResidual": 0.018306,
+    "distanceFromCamera": 1.676606,
+    "centroid": [
+     -0.732768,
+     1.594074,
+     -2.664887
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       0.373716,
+       0.0,
+       -0.927543
+      ],
+      "v": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     "min": [
+      0.688147,
+      0.583728
+     ],
+     "max": [
+      3.758193,
+      2.40228
+     ]
+    },
+    "heightRange": [
+     0.656521,
+     2.37587
+    ],
+    "pixelBox": [
+     0,
+     0,
+     749,
+     697
+    ],
+    "touchesImageBorder": {
+     "left": true,
+     "right": false,
+     "top": true,
+     "bottom": false
+    },
+    "method": "histogram mode + least-squares refinement",
+    "directionDeg": 22.5
+   },
+   {
+    "id": "plane-4",
+    "role": "wall",
+    "label": 5,
+    "normal": [
+     -0.953709,
+     0.0,
+     -0.30073
+    ],
+    "offset": 1.278367,
+    "inliers": 26771,
+    "supportFraction": 0.017847,
+    "visibleArea": 0.5537,
+    "rmsResidual": 0.017921,
+    "distanceFromCamera": 1.278367,
+    "centroid": [
+     2.09624,
+     1.842863,
+     -2.39738
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       -0.30073,
+       0.0,
+       0.953709
+      ],
+      "v": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     "min": [
+      -3.373474,
+      0.792013
+     ],
+     "max": [
+      -2.495764,
+      2.230569
+     ]
+    },
+    "heightRange": [
+     0.836896,
+     2.213808
+    ],
+    "pixelBox": [
+     1314,
+     142,
+     1472,
+     640
+    ],
+    "touchesImageBorder": {
+     "left": false,
+     "right": false,
+     "top": false,
+     "bottom": false
+    },
+    "method": "histogram mode + least-squares refinement",
+    "directionDeg": 191.5
+   },
+   {
+    "id": "plane-5",
+    "role": "other-horizontal",
+    "label": 6,
+    "normal": [
+     -0.010082,
+     0.999872,
+     0.012408
+    ],
+    "offset": -0.406423,
+    "inliers": 46863,
+    "supportFraction": 0.031242,
+    "visibleArea": 0.8089,
+    "rmsResidual": 0.011927,
+    "distanceFromCamera": 0.779672,
+    "centroid": [
+     0.159931,
+     0.436334,
+     -2.259696
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       1.0,
+       0.0,
+       0.0
+      ],
+      "v": [
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "min": [
+      -0.783036,
+      -3.35578
+     ],
+     "max": [
+      0.808472,
+      -1.078261
+     ]
+    },
+    "heightRange": [
+     0.386386,
+     0.469246
+    ],
+    "pixelBox": [
+     258,
+     631,
+     1029,
+     1000
+    ],
+    "touchesImageBorder": {
+     "left": false,
+     "right": false,
+     "top": false,
+     "bottom": true
+    },
+    "method": "histogram mode + least-squares refinement"
+   },
+   {
+    "id": "plane-6",
+    "role": "other-horizontal",
+    "label": 7,
+    "normal": [
+     -0.012096,
+     0.999797,
+     -0.016107
+    ],
+    "offset": -0.752,
+    "inliers": 6373,
+    "supportFraction": 0.004249,
+    "visibleArea": 0.2713,
+    "rmsResidual": 0.008783,
+    "distanceFromCamera": 0.434006,
+    "centroid": [
+     1.535074,
+     0.729557,
+     -2.577677
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       1.0,
+       0.0,
+       0.0
+      ],
+      "v": [
+       0.0,
+       0.0,
+       1.0
+      ]
+     },
+     "min": [
+      -0.975849,
+      -3.708931
+     ],
+     "max": [
+      2.18913,
+      -0.93117
+     ]
+    },
+    "heightRange": [
+     0.682812,
+     0.744628
+    ],
+    "pixelBox": [
+     0,
+     575,
+     1453,
+     834
+    ],
+    "touchesImageBorder": {
+     "left": false,
+     "right": false,
+     "top": false,
+     "bottom": false
+    },
+    "method": "histogram mode + least-squares refinement"
+   },
+   {
+    "id": "plane-7",
+    "role": "other-vertical",
+    "label": 8,
+    "normal": [
+     -0.976389,
+     0.0,
+     -0.216019
+    ],
+    "offset": 1.299322,
+    "inliers": 15963,
+    "supportFraction": 0.010642,
+    "visibleArea": 0.4753,
+    "rmsResidual": 0.027196,
+    "distanceFromCamera": 1.299322,
+    "centroid": [
+     1.860892,
+     0.359614,
+     -2.400306
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       -0.216019,
+       0.0,
+       0.976389
+      ],
+      "v": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     "min": [
+      -3.157298,
+      0.019301
+     ],
+     "max": [
+      -2.025276,
+      0.714439
+     ]
+    },
+    "heightRange": [
+     0.02644,
+     0.696469
+    ],
+    "pixelBox": [
+     1260,
+     425,
+     1476,
+     978
+    ],
+    "touchesImageBorder": {
+     "left": false,
+     "right": false,
+     "top": false,
+     "bottom": false
+    },
+    "method": "histogram mode + least-squares refinement",
+    "directionDeg": 191.5
+   },
+   {
+    "id": "plane-8",
+    "role": "other-vertical",
+    "label": 9,
+    "normal": [
+     -0.321412,
+     -0.0,
+     0.94694
+    ],
+    "offset": 2.54033,
+    "inliers": 27189,
+    "supportFraction": 0.018126,
+    "visibleArea": 0.2728,
+    "rmsResidual": 0.017584,
+    "distanceFromCamera": 2.54033,
+    "centroid": [
+     1.434285,
+     0.617764,
+     -2.197633
+    ],
+    "visibleExtent": {
+     "axes": {
+      "u": [
+       0.94694,
+       -0.0,
+       0.321412
+      ],
+      "v": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     "min": [
+      -1.534529,
+      0.026291
+     ],
+     "max": [
+      1.321147,
+      2.0428
+     ]
+    },
+    "heightRange": [
+     0.04148,
+     1.955518
+    ],
+    "pixelBox": [
+     584,
+     134,
+     1500,
+     895
+    ],
+    "touchesImageBorder": {
+     "left": false,
+     "right": true,
+     "top": false,
+     "bottom": false
+    },
+    "method": "histogram mode + least-squares refinement",
+    "directionDeg": 108.5
+   }
+  ],
+  "floorOutline": {
+   "points": [
+    [
+     2.5044,
+     -3.5347
+    ],
+    [
+     1.7587,
+     -1.6707
+    ],
+    [
+     1.7309,
+     -1.644
+    ],
+    [
+     1.7224,
+     -1.6359
+    ],
+    [
+     1.712,
+     -1.6348
+    ],
+    [
+     1.7097,
+     -1.6348
+    ],
+    [
+     -0.0796,
+     -1.6361
+    ],
+    [
+     -0.0935,
+     -1.6372
+    ],
+    [
+     -0.0983,
+     -1.6395
+    ],
+    [
+     -0.2815,
+     -3.7745
+    ],
+    [
+     -0.2832,
+     -3.7977
+    ],
+    [
+     -0.2839,
+     -3.807
+    ],
+    [
+     -0.2857,
+     -3.8327
+    ],
+    [
+     -0.2044,
+     -4.03
+    ],
+    [
+     1.3994,
+     -3.9941
+    ],
+    [
+     2.4251,
+     -3.5857
+    ]
+   ],
+   "basis": "estimated",
+   "note": "convex hull of visible floor pixels"
+  },
+  "layout": {
+   "settings": {
+    "target_points": 250000,
+    "normal_tolerance_deg": 20.0,
+    "floor_min_below_camera": 0.2,
+    "height_bin": 0.02,
+    "offset_bin": 0.03,
+    "direction_window_deg": 12.0,
+    "direction_merge_deg": 20.0,
+    "min_plane_area": 0.25,
+    "peak_relative_mass": 0.15,
+    "wall_min_area": 0.5,
+    "wall_min_height": 0.8,
+    "inlier_base": 0.02,
+    "inlier_per_metre": 0.015,
+    "refine_iterations": 3,
+    "ceiling_parallel_deg": 5.0,
+    "gravity_warn_deg": 10.0,
+    "duplicate_normal_deg": 5.0,
+    "duplicate_offset": 0.06,
+    "manhattan_window_deg": 10.0,
+    "max_other_horizontal": 4
+   },
+   "stride": 2,
+   "counts": {
+    "validPixels": 1500000,
+    "samples": 375000,
+    "facingUpBelowCamera": 50331,
+    "facingDownAboveCamera": 50799,
+    "vertical": 207153,
+    "directions": [
+     22.5,
+     63.5,
+     108.5,
+     138.5,
+     168.5,
+     191.5
+    ]
+   }
+  },
+  "openings": [],
+  "instances": [],
+  "appearance": [],
+  "light": null,
+  "roomType": []
+ }
+}

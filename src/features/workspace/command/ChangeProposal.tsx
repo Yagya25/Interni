@@ -13,8 +13,8 @@ const RECEIPT_MS = 5000;
  * Understood: the changes, grouped by what they touch, each previewed in
  * the room — the same preview the renderer uses for everything else,
  * applied to the store's scene rather than to the document. Nothing enters
- * the history until Apply, and each change enters it separately, so they
- * can be undone one at a time afterwards.
+ * the history until Apply, and then the command enters it as one step:
+ * one undo takes back everything it did.
  *
  * Understood but not available: the request exactly as it was read, so it
  * is plain the words were understood, with no pretence it can be done.
@@ -158,14 +158,14 @@ function Applied() {
         Applied
       </span>
       <span className={styles.receiptText}>
-        {receipt.summary} {receipt.changes === 1 ? "One change" : `${receipt.changes} changes`} in the history.
+        {receipt.title}. {receipt.changes === 1 ? "One change" : `${receipt.changes} changes`}, one step in the history.
       </span>
       <button
         type="button"
         className={styles.undo}
         onClick={() => {
-          // Each change was its own history entry; take back all of them.
-          for (let i = 0; i < receipt.changes; i += 1) store.undo();
+          // The whole command is one history entry.
+          store.undo();
           store.clearReceipt();
         }}
       >

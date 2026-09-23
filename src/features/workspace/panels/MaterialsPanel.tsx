@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { findById } from "@/scene/model/queries";
 import type { Hex, Material, MaterialClass } from "@/scene/model/types";
 import { ColorField, Field, NumberField, Swatch } from "../controls/Controls";
+import { describeFinish } from "../reconstruction/describe";
+import { useWorkspaceSource } from "../sourceContext";
 import { adjustSlot, adjustSurface, restyleSlot, resurface, type Intent } from "../state/edits";
 import { useSelectedObject, useStore, useWorkspace } from "../state/store";
 import { Note, Panel, Section } from "./Panel";
@@ -45,6 +47,8 @@ export function MaterialsPanel() {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const active = subjects.find((s) => s.key === activeKey) ?? subjects[0];
   const current = active ? findById(scene.materials, active.materialId) : undefined;
+  const evidence = useWorkspaceSource()?.evidence;
+  const found = current ? describeFinish(current, evidence?.entities[current.id]) : null;
 
   const change = (to: Material): Intent | null => {
     if (!active) return null;
@@ -109,6 +113,7 @@ export function MaterialsPanel() {
                 </span>
               </span>
             </div>
+            {found && <Note>Found in your photograph: {found}.</Note>}
             <Palette
               palette={store.palette}
               currentId={current.id}

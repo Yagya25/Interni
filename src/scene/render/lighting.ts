@@ -8,6 +8,7 @@ import {
 } from "three";
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 import { clamp, lerp, smoothstep } from "@/lib/math";
+import type { Scene } from "@/scene/model/types";
 import type { OpeningPart } from "./architecture";
 
 /**
@@ -102,12 +103,18 @@ export const createLightSample = (): LightSample => ({
   exteriorIntensity: 1,
 });
 
+const SKY_BOUNCE = new Color("#f3efe8");
+const GROUND_BOUNCE = new Color("#b8ab98");
+const luminance = (c: Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+
 export class LightRig {
   readonly sun: DirectionalLight;
   readonly hemisphere: HemisphereLight;
   readonly windows: RectAreaLight[] = [];
   readonly sample = createLightSample();
   private readonly roomCenter: Vector3;
+  /** False when the scene says its daylight is diffuse: the sun is kept out. */
+  private direct = true;
 
   constructor(
     scene: ThreeScene,
@@ -133,7 +140,7 @@ export class LightRig {
     this.sun.shadow.radius = 3;
     scene.add(this.sun, this.sun.target);
 
-    this.hemisphere = new HemisphereLight("#f3efe8", "#b8ab98", 0.5);
+    this.hemisphere = new HemisphereLight(SKY_BOUNCE, GROUND_BOUNCE, 0.5);
     scene.add(this.hemisphere);
 
     for (const w of windows) {
@@ -145,9 +152,35 @@ export class LightRig {
     }
   }
 
+  /**
+   * What the scene says about its light beyond the hour.
+   *
+   * A reconstructed room's bounce light was read from its photograph, so its
+   * ambient colour becomes the rig's bounce colour (at the rig's own
+   * brightness). The demonstration room's ambient colour predates the rig
+   * reading it; its bounce light keeps the colours it was art-directed with.
+   * Daylight marked `direct: false` is diffuse, and keeps the sun out.
+   */
+  configure(scene: Scene) {
+    const daylight = scene.lights.find((l) => l.kind === "daylight");
+    this.direct = daylight?.kind !== "daylight" || daylight.direct !== false;
+    const ambient = scene.lights.find((l) => l.kind === "ambient");
+    this.hemisphere.color.copy(SKY_BOUNCE);
+    this.hemisphere.groundColor.copy(GROUND_BOUNCE);
+    if (ambient?.kind === "ambient" && scene.provenance.kind === "reconstruction") {
+      const bounce = new Color(ambient.color);
+      const y = luminance(bounce);
+      if (y > 0) {
+        this.hemisphere.color.copy(bounce).multiplyScalar(luminance(SKY_BOUNCE) / y);
+        this.hemisphere.groundColor.copy(bounce).multiplyScalar(luminance(GROUND_BOUNCE) / y);
+      }
+    }
+  }
+
   /** Apply the time of day. Returns the sample for fixtures and exposure. */
   update(time: number) {
     const s = sampleLight(time, this.sample);
+    if (!this.direct) s.sunIntensity = 0;
     this.sun.color.copy(s.sunColor);
     this.sun.intensity = s.sunIntensity;
     this.sun.position.copy(this.roomCenter).addScaledVector(s.sunDirection, 14);
