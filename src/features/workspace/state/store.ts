@@ -4,6 +4,16 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import { applyOperations } from "@/scene/model/operations";
 import type { Id, Material, Scene } from "@/scene/model/types";
 import type { ClarifyOption, CommandInterpreter, Interpretation, ReplacementRequest, SceneCommand } from "../ai/interpreter";
+import {
+  applied as appliedTo,
+  DESIGN_MESSAGES,
+  previewing as previewingIn,
+  proposalAt,
+  proposalOf,
+  readDesigns,
+  type DesignSession,
+} from "../design";
+import { readDesignRequest, type DesignRequest } from "../design/read";
 import type { Intent } from "./edits";
 import {
   canRedo,
@@ -31,6 +41,12 @@ export interface WorkspaceState {
   proposal: Interpretation | null;
   /** Which of a proposal's changes are currently in the preview. */
   previewing: ReadonlySet<string>;
+  /**
+   * Design directions on screen, if any: a plan per card, none of which has
+   * touched the document. One may be laid over the room to look at; applying
+   * one hands its operations to the history like any other edit.
+   */
+  design: DesignSession | null;
   /**
    * What the command bar has to say. `note` is an honest answer that is not
    * a failure — a phrasing that isn't understood, or a request that needs a
@@ -90,6 +106,7 @@ export class WorkspaceStore {
       scene,
       proposal: null,
       previewing: new Set(),
+      design: null,
       command: IDLE,
       limitation: null,
       receipt: null,
@@ -144,12 +161,17 @@ export class WorkspaceStore {
 
   /**
    * After any step through the history other than applying a proposal:
-   * the selection, as `dropped` says, and the receipt of the last command,
+   * the selection, as `dropped` says; the receipt of the last command,
    * which no longer describes the last step — its Undo would otherwise take
-   * back a different one.
+   * back a different one; and any design laid over the room, which was laid
+   * over the scene as it stood before the step.
    */
   private moved(doc: WorkspaceDocument) {
-    return { ...this.dropped(doc), ...(this.state.receipt && { receipt: null }) };
+    return {
+      ...this.dropped(doc),
+      ...(this.state.receipt && { receipt: null }),
+      ...(this.state.design?.previewId && { design: previewingIn(this.state.design, null) }),
+    };
   }
 
   rename(name: string) {
@@ -180,6 +202,9 @@ export class WorkspaceStore {
     this.set({
       proposal,
       previewing: new Set(proposal.changes.map((c) => c.id)),
+      // One thing is laid over the room at a time: a command's changes end
+      // whatever design was being looked at, and the cards stay on screen.
+      ...(this.state.design?.previewId && { design: previewingIn(this.state.design, null) }),
       command: IDLE,
       limitation: null,
       receipt: null,
@@ -221,6 +246,66 @@ export class WorkspaceStore {
     if (this.state.receipt) this.set({ receipt: null });
   }
 
+  // -------------------------------------------------------------------------
+  // Designs
+  //
+  // A design proposal is a plan, not a change. Previewing lays its
+  // operations over the document for the renderer only — exactly as a
+  // command's proposal is previewed — so leaving the preview returns the
+  // very Scene the room had, object for object. Applying one commits the
+  // whole plan as a single entry in the history: one design, one undo.
+
+  proposeDesigns(session: DesignSession) {
+    this.set({ design: session, proposal: null, previewing: new Set(), command: IDLE, limitation: null, receipt: null });
+  }
+
+  previewDesign(id: string) {
+    const { design } = this.state;
+    if (!design || !proposalOf(design, id)) return;
+    this.set({
+      design: previewingIn(design, id),
+      // A design and a command's changes cannot both be laid over the room.
+      proposal: null,
+      previewing: new Set(),
+      limitation: null,
+      receipt: null,
+    });
+  }
+
+  exitDesignPreview() {
+    const { design } = this.state;
+    if (!design?.previewId) return;
+    this.set({ design: previewingIn(design, null) });
+  }
+
+  /**
+   * Apply a design: its operations, as one edit, through the same history
+   * every other change goes through. Undo takes the whole design back.
+   */
+  applyDesign(id?: string) {
+    const { design } = this.state;
+    if (!design) return;
+    const proposal = id ? proposalOf(design, id) : proposalAt(design, null);
+    if (!proposal) return;
+    const doc = seal(commit(seal(this.state.doc), proposal.operations, proposal.title));
+    this.set({
+      doc,
+      design: appliedTo(design, proposal.id),
+      proposal: null,
+      previewing: new Set(),
+      receipt:
+        doc !== this.state.doc
+          ? { title: proposal.title, summary: proposal.description, changes: proposal.preview.operationCount }
+          : null,
+      ...this.dropped(doc),
+    });
+  }
+
+  /** Set the directions aside. The room is left exactly as it was. */
+  dismissDesigns() {
+    if (!this.state.design) return;
+    this.set({ design: null });
+  }
 
   /**
    * Send a command to the interpreter.
@@ -232,6 +317,12 @@ export class WorkspaceStore {
    * consumed, so the command bar knows whether to clear.
    */
   async run(text: string, signal: AbortSignal): Promise<boolean> {
+    // A design request and an edit command are different things and are kept
+    // apart: "make the room warmer" is one edit to this room, "give me three
+    // modern designs" is a set of directions for it. Only the second reaches
+    // the design engine, and only when the words plainly ask for one.
+    const request = readDesignRequest(text);
+    if (request) return this.runDesign(text, request, signal);
     if (!this.interpreter.available) {
       this.note(this.interpreter.unavailableReason ?? "No interpreter is connected.");
       return false;
@@ -274,6 +365,50 @@ export class WorkspaceStore {
     }
   }
 
+  /**
+   * A design request: either an act on the directions already on screen, or
+   * a new brief for the engine. A brief goes through the provider boundary
+   * and the intent schema before a single operation exists, exactly as a
+   * command does.
+   */
+  private async runDesign(text: string, request: DesignRequest, signal: AbortSignal): Promise<boolean> {
+    if (request.kind === "session") {
+      const design = this.state.design;
+      if (!design) {
+        this.note(DESIGN_MESSAGES.noSession, "plain", null, text);
+        return false;
+      }
+      if (request.action === "dismiss") {
+        this.dismissDesigns();
+        return true;
+      }
+      const proposal = proposalAt(design, request.ordinal);
+      if (!proposal) {
+        this.note(request.ordinal === null ? DESIGN_MESSAGES.nothingPreviewed : DESIGN_MESSAGES.notThatMany(design.proposals.length), "plain", null, text);
+        return false;
+      }
+      if (request.action === "apply") this.applyDesign(proposal.id);
+      else this.previewDesign(proposal.id);
+      return true;
+    }
+
+    this.set({ command: { ...IDLE, pending: true, text }, limitation: null, receipt: null });
+    try {
+      const result = await readDesigns(text, this.state.doc.scene, signal);
+      if (signal.aborted) return false;
+      if (result.outcome === "designs") {
+        this.proposeDesigns(result.session);
+        return true;
+      }
+      this.note(result.message, "plain", result.outcome === "none" ? "no-change" : "not-understood", text);
+      return false;
+    } catch (error) {
+      if (signal.aborted) return false;
+      this.note(error instanceof Error ? error.message : DESIGN_MESSAGES.noProposals, "plain", "unsupported", text);
+      return false;
+    }
+  }
+
   private note(note: string, tone: "plain" | "select" = "plain", kind: NoteKind | null = null, text: string | null = null, options: readonly ClarifyOption[] = []) {
     this.set({ command: { pending: false, note, tone, kind, text, options } });
   }
@@ -295,7 +430,12 @@ export class WorkspaceStore {
 }
 
 function renderedScene(state: WorkspaceState): Scene {
-  const { doc, proposal, previewing } = state;
+  const { doc, proposal, previewing, design } = state;
+  // A design being looked at is laid over the document exactly as a
+  // command's changes are: the document itself is untouched, so leaving the
+  // preview gives back the very same Scene.
+  const previewed = design?.previewId ? proposalOf(design, design.previewId) : null;
+  if (previewed) return applyOperations(doc.scene, previewed.operations);
   if (!proposal || previewing.size === 0) return doc.scene;
   const operations = proposal.changes
     .filter((change) => previewing.has(change.id))
@@ -326,6 +466,7 @@ export function useWorkspace<T>(selector: (state: WorkspaceState) => T): T {
   return useSyncExternalStore(store.subscribe, read, read);
 }
 
+export const useDesigns = () => useWorkspace((s) => s.design);
 export const useCanUndo = () => useWorkspace((s) => canUndo(s.doc));
 export const useCanRedo = () => useWorkspace((s) => canRedo(s.doc));
 export const useSelectedObject = () =>

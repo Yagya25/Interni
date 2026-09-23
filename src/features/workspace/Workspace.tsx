@@ -7,6 +7,7 @@ import type { Material, Scene } from "@/scene/model/types";
 import { notConnected, type CommandInterpreter } from "./ai/interpreter";
 import { ChangeProposal } from "./command/ChangeProposal";
 import { CommandBar } from "./command/CommandBar";
+import { DesignDirections } from "./design/DesignDirections";
 import { Inspector } from "./Inspector";
 import { AiPanel } from "./panels/AiPanel";
 import { CameraPanel } from "./panels/CameraPanel";
@@ -90,6 +91,7 @@ function Shell() {
         {/* The room is the page's content, and where the skip link lands. */}
         <main id={anchors.main} tabIndex={-1} className={styles.stage} data-region="stage">
           <Viewport canvasRef={canvasRef} viewportRef={viewportRef} />
+          <DesignDirections />
           <ChangeProposal />
         </main>
 
