@@ -1,18 +1,26 @@
-# Current state, after Phase 3E
+# Current state, after Phase 4A
 
-What is actually implemented, as of 22 September 2026. Nothing here is planned
+What is actually implemented, as of 23 September 2026. Nothing here is planned
 work: every claim is read from the code in this repository and from the
 reconstruction worker in WSL. The design document for where this is going is
 `docs/reconstruction-architecture.md`; this file is the inventory.
 
-Repository: branch `landing-workspace-refinement`, HEAD `2162777`. Everything
-from the reconstruction compiler onwards (`src/scene/compile/`,
-`src/features/workspace/ai/`, the reconstruction pages and routes) is present
-in the working tree and **not committed**.
+Repository: branch `landing-workspace-refinement`, HEAD `59a4bcc`. Everything
+described below is committed — the reconstruction compiler and the AI command
+layer in `20eff6c`, the design proposal engine in `59a4bcc`.
 
 Stack: Next.js 16.3.5 (App Router), React 19.2.8, three 0.186, TypeScript 5,
 vitest 4.1.11. The reconstruction worker is a separate Python 3.12 package in
 WSL, not part of this repository.
+
+The product is two pipelines over one Scene:
+
+```
+photograph → worker → intermediate → SceneCompiler → Scene → workspace
+                                                       │
+                          words → intent → command → operations → history   (3E: do this)
+                          words → design intent → proposals → operations → history  (4A: propose this)
+```
 
 ---
 
@@ -75,7 +83,9 @@ right-handed, +Y up, floor at y = 0, radians, sRGB hex, stable ids.
 
 Helpers: `queries.ts` (room bounds, walls, wall frames, opening centres, used
 material ids, object centre/radius), `summary.ts` (`summarizeScene` for the
-title block), `editing.ts`, and `operations.ts` (below).
+title block), `editing.ts`, `colour.ts` (sRGB arithmetic — mix, scale,
+luminance, warmth — shared by the command layer and the design engine so both
+shift a finish the same way), and `operations.ts` (below).
 
 ## 3. Compiler (`src/scene/compile/`)
 
@@ -146,6 +156,10 @@ per-light readings in `Inspector`, `MaterialsPanel` and `LightingPanel`
 through `reconstruction/describe.ts`. Evidence reaches components via
 `sourceContext.ts`.
 
+**A design proposal carries no evidence.** It is a choice, not a measurement,
+and the cards say what each direction changes and what it leaves as the
+photograph found it (§13.7).
+
 ## 5. Object relationships
 
 `compile/relationships.ts`, rules version `relations-0.1`, derived
@@ -162,7 +176,8 @@ deterministically from placements alone (sorted, ids `rel-0`…):
 
 The AI layer re-checks a recorded relationship against the current geometry
 before trusting it (`holds()` in `ai/rules/spatial.ts`), so a piece dragged
-across the room is no longer "beside the sofa".
+across the room is no longer "beside the sofa". The design analysis reads the
+`against` relationships as spatial constraints (§13.2).
 
 ## 6. Materials
 
@@ -191,6 +206,10 @@ unified into one paint, coloured by the best-lit of them. Names describe and
 claim nothing more ("Painted surface, light beige"). Anything not read gets a
 plainly named stand-in (`unestimated-floor`, `unestimated-accent`, …).
 
+`ALLOWED_CLASSES` is the one table of what a thing can be made of. Both the
+command layer (`validateCommand`) and the design engine (`validateOperations`)
+check against it, so no path can make a television's screen fabric.
+
 ## 7. Lighting
 
 `compile/lighting.ts` (`light-rules-0.1`) produces exactly three kinds of
@@ -213,21 +232,25 @@ cross-check.
 
 ## 8. Spatial validation
 
-Two layers, both geometric, no fixed coordinates anywhere:
+Three layers now, all geometric, no fixed coordinates anywhere:
 
 - **Compiler**: objects are held inside the room, placed on what carries
   them, snapped against a wall within 0.35 m, and `checkInvariants()` refuses
   a Scene with anything outside the footprint.
-- **AI layer** (`ai/rules/spatial.ts`, 642 lines): footprints as oriented
-  rectangles, separating-axis `separation()`, height overlap, `insideRoom()`,
-  `heldInside()`, `collision()` against every piece with height (a rug is
-  walked over; what a piece carries or stands on is ignored), and `settle()` —
-  the nearest free spot, searched **along the piece's own wall first** so a
-  sofa keeps its back to the wall, then on rings 2 cm apart up to 0.4 m.
-  Moves are marched in 2 cm steps and stop at the first wall or piece, and a
-  stated distance that was cut short says so. `SPACING` holds the clearances
-  (0.3 m between pieces, 0.1 m beside, 0.4 m in front, 0.15 m behind and
-  above, 0.1 m against a wall).
+- **AI command layer** (`ai/rules/spatial.ts`, 642 lines): footprints as
+  oriented rectangles, separating-axis `separation()`, height overlap,
+  `insideRoom()`, `heldInside()`, `collision()` against every piece with
+  height (a rug is walked over; what a piece carries or stands on is
+  ignored), and `settle()` — the nearest free spot, searched **along the
+  piece's own wall first** so a sofa keeps its back to the wall, then on rings
+  2 cm apart up to 0.4 m. Moves are marched in 2 cm steps and stop at the
+  first wall or piece, and a stated distance that was cut short says so.
+  `SPACING` holds the clearances (0.3 m between pieces, 0.1 m beside, 0.4 m
+  in front, 0.15 m behind and above, 0.1 m against a wall).
+- **Design engine** (`design/validate.ts`): re-uses `footprintOf` and
+  `insideRoom` to refuse any proposed transform that would leave the room,
+  and refuses outright any operation that would add, remove or replace a
+  piece (§13.8).
 
 The photograph's camera defines left/right/front/back (`cameraFrame`,
 `squared`, `acrossPhoto`): the one view the person and the reconstruction
@@ -235,7 +258,7 @@ share, whatever the on-screen orbit is doing. Forward/backward follow a
 piece's own front when it has one (`HAS_FRONT`), the camera when it does not.
 Up and down apply only to wall-hung pieces.
 
-## 9. AI command architecture
+## 9. AI command architecture (Phase 3E)
 
 One pipeline, `src/features/workspace/ai/`:
 
@@ -266,6 +289,11 @@ text → IntentReader → validateIntent → SceneIntent
   anywhere in this layer; with no interpreter passed at all the workspace uses
   `notConnected`, which refuses and says why. Nothing ever fabricates a model
   response.
+
+The command bar is shared with the design engine. `WorkspaceStore.run()` reads
+the words for a design request first (`readDesignRequest`, §13.4); only when
+they are not one does the text reach the interpreter above. The two paths are
+kept apart on purpose and neither can produce the other's result.
 
 ## 10. Intent schema (`ai/intent.ts`)
 
@@ -348,17 +376,271 @@ answers "that's already the case" rather than pretending. Everything is a
 pure function of the command and the scene — the same words on the same room
 always give the same operations, which is asserted in the tests.
 
-## 13. History, undo and redo
+## 13. Design architecture (Phase 4A)
+
+`src/features/workspace/design/` — 2,217 lines of engine and UI plus 588
+lines of tests. The product moves from "do what I tell you" to "help me
+design this room" **without** a second way to change a room:
+
+```
+Scene → analyseScene → DesignAnalysis
+text  → DesignIntentProvider → validateDesignIntent → DesignIntent
+        → ProposalGenerator (+ analysis) → validateOperations → DesignProposal[]
+        → preview (overlay only) → apply → commit() → the same history
+```
+
+A proposal is a **plan**, never a mutation and never a picture: it holds the
+`SceneOperation[]` it *would* apply and nothing else. Until someone applies
+it, the room it describes exists only as that list.
+
+### 13.1 DesignAnalysis (`analysis.ts`)
+
+`analyseScene(scene)` reads the Scene and nothing else — no priors, no
+inference layer, no invented objects. Version `design-analysis-0.1`. It
+returns:
+
+- `room` — type, label, width, depth, height, floor area (bounding rectangle).
+- `furniture` — count; categories with counts (most numerous first, then
+  alphabetical); `occupiedArea` and `freeArea` in m² from the floor-standing
+  pieces' plan rectangles; `density` (occupied ÷ floor area); `seating`;
+  `focal` (a television, else the sofa, else null); `wallMounted`;
+  `floorStanding`; `carried`; `largest`.
+- `materials` — the wall finishes, the floor, the ceiling, every object finish
+  slot (`SlotFinish`: object, category, slot, material id, class, colour, and
+  whether it is an `unestimated-` stand-in), the `palette` (distinct colours
+  by how much they cover), and mean `lightness`, `contrast` and `saturation`.
+- `lighting` — the hour (the daylight's `timeOfDay`, else the 0.18 default),
+  the daylight and its openings, the ambient, every lamp with its colour
+  temperature / intensity / switch, and `unlit`.
+- `spatialConstraints` — pieces the room put `against` a wall, what stands on
+  what, the openings and their walls, and the relationship count.
+- `existingStyleSignals` — where the room already sits on the style axes:
+  warmth, brightness, contrast, colourfulness, whether wood and fabric are
+  present.
+
+Deterministic: the same Scene gives the same analysis field for field.
+
+### 13.2 DesignIntent and the provider boundary (`intent.ts`)
+
+`DesignIntent` is what a *request* asks for, and the only thing the generator
+accepts:
+
+```
+{ version: "design-intent-0.1",
+  styles: DesignStyle[],            // empty means "choose for me"
+  atmosphere: string | null,        // the words, for the card
+  warmth | brightness | contrast |
+  luxury | minimalism | coziness: number | null,   // each −1..1
+  variantCount: number }            // 1..MAX_VARIANTS (3)
+```
+
+`validateDesignIntent(value)` is the provider boundary, and it is as strict as
+`validateIntent`: an unknown style is refused **by name**, styles must not
+repeat, every axis must be a finite number within −1..1, `variantCount` must
+be a whole number between 1 and 3, an unknown `version` is refused, nothing is
+coerced. A model placed behind this boundary can ask for a style and an
+atmosphere; **it cannot name an operation, an object id, or a colour**. The
+generator decides what a style means for a room and the validator decides
+whether the result may be shown at all.
+
+`DesignIntentProvider` (`read.ts`) is the interface a future
+`LLMDesignIntentProvider` implements — `kind: "rules" | "model"`, a name, a
+note, examples, and `read(text, signal) → unknown`. The build ships exactly
+one: `designRules`, deterministic, with no provider, no credential path and no
+network call anywhere in the layer.
+
+### 13.3 Reading a design request (`read.ts`)
+
+Deterministic and rule-based, like the command reader. What makes a sentence a
+design request at all is a closed set:
+
+- a **design noun** — design, redesign, makeover, scheme, variant, version,
+  option, direction, idea, concept, style, palette, moodboard, atmosphere,
+  vibe;
+- the word **feel** (or feels / feeling / mood);
+- a **style name** — modern, contemporary, scandinavian / scandi / nordic,
+  minimal / minimalist, classic, elegant, luxurious / luxury, cozy / cosy,
+  snug, inviting, and the compound "dark contemporary".
+
+Nothing else. This is the line between the two pipelines, and it is drawn
+deliberately: **"make the room warmer" is an edit** (one change to this room,
+§12) and stays one; "make this room *feel* warmer and more luxurious" is a
+design brief. Axis words (warm, bright, dark, contrast, luxurious, minimal,
+cozy and their opposites) set the axes, with "less"/"not so" counting against
+an axis; "much / very" reads 1, "slightly / a bit" 0.35, otherwise 0.65. A
+number or a plural sets `variantCount` ("3 modern designs" → 3, "a couple of
+options" → 2, "some ideas" → 3, otherwise 1).
+
+The same reader recognises an act on directions already on screen —
+`{ action: "preview" | "apply" | "dismiss", ordinal }` — but never when a
+style is named, so "show me a Scandinavian version" is always a new brief.
+With no session open, such an act is answered ("There are no designs on
+screen") rather than quietly generating some.
+
+### 13.4 Styles (`styles.ts`)
+
+Six descriptive presets, not a ranking. Each carries a palette (wall, ceiling,
+wood, upholstery, textile, accent, metal, shade), a floor rule, light values,
+an axis signature, three variants and the constraints it states plainly:
+
+| Style | Title | Variants | Floors kept | Hour | Bulb | Output | Lamps on |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| MODERN_WARM | Modern Warm | Modern Warm · Modern Neutral · Modern Dark Accent | wood | 0.32 | 2700 K | 1.15 | yes |
+| SCANDINAVIAN | Scandinavian | Scandinavian Light · Soft · Muted | wood | 0.10 | 3200 K | 1.0 | no |
+| MINIMAL_NEUTRAL | Minimal Neutral | Minimal Pale · Stone · Graphite | wood, stone, ceramic | 0.15 | 3000 K | 1.0 | no |
+| DARK_CONTEMPORARY | Dark Contemporary | Dark Charcoal · Ink · Warm Shadow | wood, stone | 0.55 | 2500 K | 1.25 | yes |
+| CLASSIC_ELEGANT | Classic Elegant | Classic Ivory · Taupe · Deep | wood | 0.38 | 2700 K | 1.2 | yes |
+| COZY | Cozy | Cozy Amber · Clay · Ember | wood | 0.62 | 2400 K | 1.3 | yes |
+
+No preset mentions an object id, a category or a coordinate: a style is read
+against whatever Scene is open. `STYLE_ORDER` (modern, scandinavian, minimal,
+dark, classic, cozy) is the order used when nothing narrows the choice.
+
+`resolveScheme(preset, variant, axes)` folds the three into the one set of
+colours and light values the generator works from. A variant multiplies
+lightness, leans the palette warm or cool and sets how far accents go; the
+request's axes *nudge* the preset without replacing it (a warmer Scandinavian
+room is still Scandinavian), and contrast is spent on the palette's darker
+half so raising it separates timber and seating from the walls. With no style
+named, `styleFor(axes)` picks the preset whose signature scores highest
+against the request, ties broken by `STYLE_ORDER`.
+
+### 13.5 ProposalGenerator (`generate.ts`)
+
+`generateProposals(scene, intent, analysis?)` → `{ ok, analysis, proposals,
+rejected, reason? }`.
+
+Which directions are produced: one style named gives that style's variants in
+order (3 modern designs → Modern Warm, Modern Neutral, Modern Dark Accent);
+several named give one reading of each before a second of any; none named
+picks the style the axes point at, or — when the request says nothing at all —
+a spread across the vocabulary, so "three designs" are three directions rather
+than three shades of one.
+
+What a scheme means for a room, read in the Scene's own order:
+
+- **Walls** — `resurface` each wall with the style's wall colour.
+- **Ceiling** — the style's ceiling colour, always lighter than its walls.
+- **Floor** — kept exactly as measured when its class is one the style keeps
+  (a ceramic floor survives a Minimal Neutral); otherwise the style's own
+  floor colour, with the pattern, tile size and gloss the photograph measured
+  carried through untouched.
+- **Object finishes** — `restyle` per slot, by family: upholstery / cover /
+  seat / bedding / cushion, textiles (curtains, rugs, fabric, pile, weave),
+  timber (frame, body, top, stand, base, shelf), lamp shades, and artwork
+  surfaces as the style's restrained accent. A metal finish takes the
+  palette's metal tone; stone and ceramic are mixed towards the timber tone
+  rather than repainted. **Skipped entirely**: a television, a plant's
+  foliage, anything of class glass, and any slot the engine does not
+  recognise.
+- **Light** — `relight` the daylight to the style's hour, and each lamp to its
+  colour temperature and output; a lamp the photograph found unlit is switched
+  on only by a style that says so.
+
+Every operation is applied to a working copy as it is planned and **dropped if
+it changes nothing**, so a proposal never offers a change the room already
+has; a direction with nothing left to do is reported as
+"This room already reads that way". Ids are `<style>-<variant>`
+(`modern-warm-dark-accent`), so the same request always names the same
+proposal. No `Math.random`, no `Date.now`, no timestamps, no unordered
+iteration: verified by test and by inspection.
+
+### 13.6 DesignProposal (`proposal.ts`)
+
+```
+{ id, title, style, variant, description,
+  designGoals[], operations[],
+  affectedObjects[], affectedMaterials[], affectedLighting[],
+  rationale[], constraints[],
+  changes: ProposedChange[],          // the shape the command layer already uses
+  preview: { operationCount, changedObjectCount,
+             changedMaterialCount, changedLightCount },
+  status: "draft" | "preview" | "applied" | "rejected" }
+```
+
+`rationale` is written from this room's own analysis ("The 3 walls are the
+largest surface the room has…", "The floor lamp was found unlit in the
+photograph; at this hour the style has it on"). `constraints` say what the
+direction deliberately leaves alone, including that finishes are recoloured
+while what each thing is *made of* stays as the photograph measured it, and
+how many of the finishes changed were stand-ins the photograph never showed.
+
+### 13.7 Proposal validation (`validate.ts`)
+
+`validateOperations(scene, operations)` runs before a proposal is ever shown,
+operation by operation against a working copy, and returns `{ ok }` or a
+reason in the person's terms. It refuses:
+
+- an empty plan, and any id the room does not have (object, surface, light);
+- a slot the object does not have;
+- a finish of a class that slot cannot take — `ALLOWED_CLASSES`, the
+  compiler's own table — checked whenever a proposal *changes* a class;
+  keeping the measured class is always allowed;
+- a colour that is not `#rrggbb`, roughness or metalness outside 0..1;
+- an hour outside 0..1, a bulb outside 1800–6500 K, output outside 0..3, a
+  lamp value aimed at daylight or a daylight value aimed at a lamp, a light
+  whose fixture is not in the room;
+- a move that would put a piece outside the room, a move of a wall-hung
+  piece, a scale past the editor's limits, a non-finite transform;
+- **any** `add`, `remove` or `replace` — a design proposal cannot invent or
+  destroy furniture;
+- a plan that would change the number of objects, surfaces, openings or
+  lights, leave a surface or slot without a finish, or leave a lamp's light
+  without its fixture.
+
+The check is deliberately wider than what today's generator can emit: it is
+the boundary a future generator — or a model asked for a bolder plan — has to
+pass, so the generator's own restraint is not what keeps the room valid. A
+proposal that fails is left out with its reason kept in `rejected`, never
+quietly repaired.
+
+### 13.8 Session, preview isolation and apply (`session.ts`, `state/store.ts`)
+
+`DesignSession` = the request, the intent it was read as, the analysis, the
+proposals, the rejected ones, `previewId` and `appliedId`. It lives in
+`WorkspaceStore.state.design`, and the store exposes `proposeDesigns`,
+`previewDesign`, `exitDesignPreview`, `applyDesign` and `dismissDesigns`.
+
+**Preview isolation.** `renderedScene()` lays the previewed proposal's
+operations over `doc.scene` for the renderer only — the very mechanism a
+command's proposal already used. The document is untouched, so leaving a
+preview returns *the same Scene object*, not an equal one; the test asserts
+both reference identity and serialized equality. One thing is laid over the
+room at a time: previewing a design drops a command's preview and issuing a
+command drops the design's, leaving the cards on screen and every proposal
+back at `draft`.
+
+**Apply.** `applyDesign()` commits the proposal's whole plan through
+`commit()` as a **single** history entry labelled with the proposal's title,
+so one undo takes the entire design back and one redo returns it exactly. The
+receipt strip reports it honestly ("Modern Neutral. 30 changes, one step in
+the history."). Statuses move with it: the applied proposal becomes `applied`
+and the ones not taken become `rejected`, while staying on screen and still
+applicable. Stepping the history at all clears a design preview, since it was
+laid over the room as it stood before the step.
+
+### 13.9 The design UI (`DesignDirections.tsx`)
+
+A narrow column against the room's left edge — about a sixth of the width, so
+the 3D room stays the thing being looked at. Each card shows the title, the
+one-line description, the three counts (finishes, pieces, lights), and
+Preview / Apply / Why; Why unfolds what it changes, the rationale, what it
+leaves alone, and "N changes, applied as one step in the history". The header
+carries the words that were asked and a Close. Directions that could not be
+offered are named with their reason at the foot.
+
+## 14. History, undo and redo
 
 `scene/model/operations.ts` defines the eight operations — `move`, `scale`,
 `restyle`, `replace`, `add`, `remove`, `resurface`, `relight` —
-`applyOperation` (pure; returns the *same* scene when nothing changes) and
-`invertOperation`, read against the scene as it stood *before* the operation.
-Exactness is handled explicitly: a removed piece comes back with its
-relationships and its light at their original indices; a restyle's inverse
-carries `library: { id, was }` so a finish that was only tried is dropped
-again; `timeOfDay: "auto"` and `on: "auto"` unset a value rather than writing
-down a default.
+`applyOperation` (pure; returns the *same* scene when nothing changes),
+`invertOperation` (read against the scene as it stood *before* the operation),
+`DEFAULT_TIME_OF_DAY` and `hourName()`, the one place an hour is put into
+words for both the command layer and the design engine. Exactness is handled
+explicitly: a removed piece comes back with its relationships and its light at
+their original indices; a restyle's inverse carries `library: { id, was }` so
+a finish that was only tried is dropped again; `timeOfDay: "auto"` and
+`on: "auto"` unset a value rather than writing down a default.
 
 `state/document.ts` holds `{ name, scene, past, future }`. `commit()` records
 one `Edit` (operations + inverses + label + optional `mergeKey`), collapsing
@@ -366,18 +648,26 @@ consecutive edits of one gesture; `seal()` ends a gesture; `undo`/`redo` apply
 inverses in reverse. History is bounded at 120 entries.
 
 `state/store.ts` (`WorkspaceStore`) is the single source of truth for the
-workspace: document, selection, tool, derived preview scene, proposal,
-command note, limitation, receipt. `acceptProposal()` commits **all** kept
-operations of a command as **one** entry labelled with the command's title —
-so "make the room warmer" (5 operations across lights and walls) is one undo —
-and drops the selection if the command removed the selected piece. `apply`,
-`undo` and `redo` also clear the receipt, so the receipt's own Undo can never
-take back a different step.
+workspace: document, selection, tool, derived preview scene, command proposal,
+**design session**, command note, limitation, receipt. Three routes reach the
+history and they are the same route:
 
-## 14. Current tests
+| What the person did | How it is committed |
+| --- | --- |
+| A drag, a slider, a panel | `apply(intent)`, gestures merged by `mergeKey` |
+| A command ("make the room warmer") | `acceptProposal()` — all kept changes as **one** entry, titled by `titleOf` |
+| A design ("give me 3 modern designs" → Apply) | `applyDesign()` — the whole plan as **one** entry, titled by the proposal |
 
-`npx vitest run` — **83 tests in 6 files, all passing** (node environment,
+`apply`, `undo` and `redo` also clear the receipt and any design preview, so
+the receipt's own Undo can never take back a different step and a preview is
+never left lying over a room it was not built for.
+
+## 15. Current tests
+
+`npx vitest run` — **120 tests in 8 files, all passing** (node environment,
 `vitest.config.mts`).
+
+Phase 3 (83, unchanged by Phase 4A):
 
 - `src/scene/compile/compileRoomShell.test.ts` (15) — shell, camera,
   byte-determinism, inferred height, calibration by one measurement and by
@@ -401,26 +691,91 @@ take back a different step.
   through the history with strict equality on undo and redo, and a
   store-level assertion that the receipt is cleared by an undo.
 
+Phase 4A (37):
+
+- `src/features/workspace/design/design.test.ts` (22) — telling a design
+  request from an edit command; styles, axes, negation and variant counts;
+  session acts; the provider boundary refusing unknown styles, out-of-range
+  axes and bad variant counts by name; a model's JSON giving byte-identical
+  proposals to the rules'; the analysis matching the Scene field for field;
+  six presets with distinct palettes and three variants each; style choice
+  from axes; nudging without replacing; three distinct proposals; the spread
+  across styles; finishes-and-light only; floors kept or coloured; nothing
+  proposed that the room already has; byte-identical output; the validator
+  passing what the engine makes and refusing bad ids, bad classes, bad light
+  values, adds, removes, replaces and transforms that leave the room; session
+  status transitions and ordinals.
+- `src/features/workspace/design/realRoomDesign.test.ts` (15) — the same
+  against the real `download.png` room: the analysis's real numbers; three
+  modern designs each valid and distinct; a Scandinavian one lighter and
+  earlier; warmer-and-more-luxurious measurably warmer across the whole
+  palette and in the light; darker-and-contemporary with the ceiling still
+  lighter than the walls and the palette still holding range; a cozy one with
+  the unlit lamp switched on; structure untouched; "already reads that way";
+  determinism; and through the store — preview isolation by identity *and*
+  serialization, apply as one history step with exact undo and redo, taking a
+  design by its place on screen, designs and commands side by side, and a
+  design preview dropped when a command takes the room.
+
 Worker (`~/datum-recon`, `python -m pytest -q tests`): **35 passed**;
-`ruff check` clean, `mypy` clean on 15 source files.
+`ruff check` clean, `mypy` clean on 15 source files. Phase 4A changed no
+Python and no worker code, so that suite is unaffected.
 
-Typecheck (`npx tsc --noEmit`) and lint (`npx eslint`): clean.
+Verified on the current tree: `npx tsc --noEmit` clean; `npx eslint .` clean
+with 0 warnings; `npx next build` compiled successfully; deterministic
+proposal output confirmed; preview / apply / undo / redo confirmed.
 
-Browser verification of Phase 3E was done by hand on the production build and
-is not automated.
+Browser verification was done by hand on the production build (`npx next start
+-p 3100`) against the real reconstruction: open the room → ask for 3 designs →
+three cards → preview #1 (the room visibly changes) → exit (the original
+returns) → preview #2 → apply (receipt: "30 changes, one step in the history")
+→ undo (original) → redo (applied). Phase 3E in the same session: a sofa move
+compiled and previewed, "move the chair" answered with three described
+options, selection and the inspector unaffected. **No console messages at
+all.** It is not automated.
 
-## 15. Known limitations
+## 16. Known limitations
+
+**Design engine (Phase 4A)**
+
+- Proposals change **finishes, colours and light only**. There is no
+  furniture-layout generation: nothing is moved, rotated or resized by a
+  design. The validator checks transforms so a future generator can be held
+  to the room, but today's generator emits none.
+- No furniture is added or removed by a design, and none can be: `add`,
+  `remove` and `replace` are refused outright. There is no asset library
+  behind the engine.
+- A proposal recolours; it never changes what a thing is made of. Changing a
+  material class stays the command layer's job.
+- At most **3 variants** per request; a larger number is refused by the
+  schema with the reason, not silently clamped.
+- The intent reader is a deterministic vocabulary of style and atmosphere
+  words. A style it has no word for is read as the nearest style it does have
+  rather than refused, and the design/edit split is that vocabulary: a bare
+  "make the room warmer" stays an edit.
+- The style presets, their palettes and the axis weights are **provisional**.
+  There is no evaluation set and no user study behind them.
+- A proposal carries no evidence and claims none; it is a choice.
+- The analysis lists the seating and the focal piece but does not describe the
+  seating *arrangement*, though the Scene's relationships would support it.
+- **No real LLM provider is connected.** `DesignIntentProvider` exists and is
+  enforced by `validateDesignIntent`; the only implementation is the rule
+  reader. No provider, credential path or network call exists in the layer.
 
 **Not wired up**
 
-- No language model anywhere: `ruleReader` is the only reader, and the
-  workspace says plainly that it is rule-based. There is no provider,
-  credential path or network call behind the boundary yet.
+- No language model anywhere: `ruleReader` and `designRules` are the only
+  readers, and the workspace says plainly that they are rule-based.
 - The entry page (`/workspace`) reads a photograph in the browser and
   measures its tones; it cannot start a reconstruction. Runs are made by hand
   in WSL and read back through `DATUM_RECONSTRUCTION_RUNS`.
-- Nothing is persisted: documents, edits, renames and scenes live in memory
-  for the session only. There is no scene serialisation format.
+- **Measurements and calibration remain deferred in the product.** The
+  compiler applies a `calibration.json` and reports residuals, but the only
+  way to make one is the worker's CLI; nothing in the app takes a
+  measurement, so every scene here is scale `estimated`, factor 1.
+- Nothing is persisted: documents, edits, renames, scenes and design sessions
+  live in memory for the session only. There is no scene serialisation format
+  and no way to save or share a design.
 - Reconstruction routes are development-only by construction and answer 404
   when the environment variable is unset.
 
@@ -441,7 +796,7 @@ is not automated.
 - The daylight hour is not recoverable from a photograph; lamp colour
   temperature is a fixed 2700 K.
 
-**AI layer**
+**AI command layer**
 
 - One piece per move; no adding furniture (no asset library); replacement is
   limited to the forms the renderer can build; windows and doors can be
@@ -459,7 +814,7 @@ is not automated.
 - The worker needs its pinned weights present and hash-matching; there is no
   CPU fallback for the main inference.
 
-## 16. Dev and run commands
+## 17. Dev and run commands
 
 ```bash
 # web app (repo root)
@@ -494,7 +849,7 @@ python -m compileall -q reconstruction tests && ruff check reconstruction tests 
   && mypy reconstruction && python -m pytest -q tests
 ```
 
-## 17. Current reconstruction fixture
+## 18. Current reconstruction fixture
 
 `src/scene/compile/__fixtures__/download-png.intermediate.json` (251 KB) is
 byte-identical to `runs/20260922T065240Z-2d25a689/reconstruction.json` — real
@@ -503,10 +858,10 @@ image, diagnostics `degraded` with one warning (GeoCalib and MoGe-2 disagree
 on the vertical field of view). It holds 18 planes, 39 instances, 83
 appearance regions and the light observation.
 
-Compiled, it is the room the AI tests and the browser verification run
-against: **3.72 × 6.42 × 3.00 m**, camera FOV 59.14°, scale uncalibrated
-(factor 1, `estimated`), the far/left/right walls observed and the side behind
-the camera omitted.
+Compiled, it is the room every AI and design test and the browser
+verification run against: **3.724 × 6.418 × 2.998 m**, camera FOV 59.14°,
+scale uncalibrated (factor 1, `estimated`), the far/left/right walls observed
+and the side behind the camera omitted.
 
 - **16 objects**: sofa, 2 armchairs, chair, coffee table, media console,
   bookshelf, ottoman, floor lamp, television, 4 artworks, 2 curtains.
@@ -519,14 +874,39 @@ the camera omitted.
   several windows seen through the glazed door (not set in a fitted wall),
   one chair whose mask was not trusted, and 13 low-score candidates.
 
+As the design analysis reads it: floor area 23.901 m², 18.169 m² free,
+density 0.24; 5 seats, 7 wall-mounted pieces, `television-0` focal, `sofa-0`
+largest; 28 object finish slots over 24 distinct colours; mean lightness
+0.282, contrast 0.534, saturation 0.333; hour 0.18 (never set), one lamp,
+unlit; `sofa-0` against `wall-left`, `bookshelf-0` against `wall-far`,
+`media-console-0` against `wall-right`.
+
+What the directions come to on this room (operations per proposal, all with
+15 pieces and 2 lights touched):
+
+| Request | Proposals |
+| --- | --- |
+| "Give me 3 modern designs." | Modern Warm 32 · Modern Neutral 30 · Modern Dark Accent 33 |
+| "Give me a Scandinavian design." | Scandinavian Light 31 |
+| "Make this room feel warmer and more luxurious." | Classic Ivory 32 |
+| "Make this room darker and more contemporary." | Dark Charcoal 31 |
+| "Give me a cozy design." | Cozy Amber 32 |
+| "Give me 3 designs." | Modern Warm 32 · Scandinavian Light 31 · Minimal Pale 29 |
+
+Minimal Neutral keeps this room's ceramic floor; every other style gives it
+the style's own floor colour while keeping its measured tile pattern and
+gloss.
+
 Other fixtures: `moge-example-house-indoor.intermediate.json` (+ its compiled
 form) for `realRun.test.ts`, and `synthetic.ts`, which builds observations of
-a known room so the compiler can be tested against ground truth.
+a known room so the compiler — and the design engine — can be tested against
+ground truth.
 
-## 18. Important files and directories
+## 19. Important files and directories
 
 ```
-src/scene/model/           types.ts (the Scene contract), operations.ts, queries.ts, summary.ts
+src/scene/model/           types.ts (the Scene contract), operations.ts, queries.ts,
+                           summary.ts, colour.ts (sRGB arithmetic, shared)
 src/scene/compile/         the SceneCompiler: intermediate.ts (worker contract), compileRoomShell.ts,
                            objects.ts, vocabulary.ts, materials.ts, lighting.ts, relationships.ts,
                            calibration.ts, evidence.ts, priors.ts, frame.ts, __fixtures__/
@@ -536,6 +916,11 @@ src/features/workspace/
   ai/                      interpreter.ts (boundary), intent.ts (schema + validator), command.ts
                            (StructuredCommand + validateCommand), roomInterpreter.ts,
                            rules/{read,resolve,compile,spatial,vocabulary,messages}.ts + 2 test files
+  design/                  the Phase 4A engine: styles.ts (presets + variants), analysis.ts
+                           (DesignAnalysis), intent.ts (DesignIntent + validator), read.ts (the
+                           deterministic provider), generate.ts (ProposalGenerator), validate.ts,
+                           proposal.ts, session.ts, messages.ts, index.ts,
+                           DesignDirections.tsx + .module.css, + 2 test files
   command/                 CommandBar.tsx (one line, kinds of answer, clickable choices), ChangeProposal.tsx
   reconstruction/          loadRun.ts, localRuns.ts, ReconstructionIndex/Workspace.tsx, describe.ts
   panels/, Inspector.tsx, Viewport.tsx, TopBar.tsx, scene/  the workspace itself
