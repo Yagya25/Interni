@@ -21,6 +21,14 @@ export const RUN_FILES = {
 
 export type RunFile = keyof typeof RUN_FILES;
 
+/**
+ * Files a run may simply not have. A run with no calibration is the usual
+ * case, not a fault: asked for one, the route answers 204 No Content — an
+ * answer, which the browser does not report as a failed request — while an
+ * unknown run, or a file that exists but cannot be read, is still an error.
+ */
+export const OPTIONAL_RUN_FILES: ReadonlySet<RunFile> = new Set<RunFile>(["calibration.json"]);
+
 const RUN_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 
 export interface RunSummary {
@@ -79,14 +87,33 @@ export async function readRunFile(runId: string, file: string): Promise<Response
   if (!dir) return problem(404, "not-configured", "DATUM_RECONSTRUCTION_RUNS is not set.");
   if (!RUN_ID.test(runId) || !(file in RUN_FILES)) return problem(404, "not-found", "No such run file.");
   // The runs folder lives outside the project on purpose; nothing in it is bundled.
-  const path = join(/*turbopackIgnore: true*/ dir, runId, file);
+  const run = join(/*turbopackIgnore: true*/ dir, runId);
+  const path = join(/*turbopackIgnore: true*/ run, file);
   try {
     if (!(await stat(path)).isFile()) return problem(404, "not-found", "No such run file.");
     const body = await readFile(path);
     return new Response(new Uint8Array(body), {
       headers: { "Content-Type": RUN_FILES[file as RunFile], ...noStore },
     });
-  } catch {
+  } catch (error) {
+    if (!missing(error)) return problem(500, "unreadable", "The run file exists but could not be read.");
+    // Absent from a run that exists: expected for an optional file, an error for any other.
+    if (OPTIONAL_RUN_FILES.has(file as RunFile) && (await isDirectory(run))) {
+      return new Response(null, { status: 204, headers: { ...noStore, "X-Run-File": "absent" } });
+    }
     return problem(404, "not-found", "No such run file.");
+  }
+}
+
+const missing = (error: unknown) => {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "ENOENT" || code === "ENOTDIR";
+};
+
+async function isDirectory(path: string) {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
   }
 }

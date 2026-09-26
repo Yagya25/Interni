@@ -1,3 +1,4 @@
+import { layoutIntentOf, type LayoutIntent } from "./layout/intent";
 import { STYLE_ORDER, type DesignStyle, type StyleAxes } from "./styles";
 
 /**
@@ -14,9 +15,13 @@ import { STYLE_ORDER, type DesignStyle, type StyleAxes } from "./styles";
  *
  * A provider's output is untrusted until `validateDesignIntent` has passed
  * it, exactly as `validateIntent` does for edit commands.
+ *
+ * Two halves, either or both: `finishes` (a style and an atmosphere for the
+ * room's surfaces, finishes and light) and `layout` (how its existing
+ * furniture is arranged — concepts, never positions).
  */
 
-export const DESIGN_INTENT_VERSION = "design-intent-0.1";
+export const DESIGN_INTENT_VERSION = "design-intent-0.2";
 
 /** More than a person can compare at a glance, and more than the styles hold. */
 export const MAX_VARIANTS = 3;
@@ -36,6 +41,10 @@ export interface DesignIntent {
   coziness: number | null;
   /** How many directions to offer, 1 to `MAX_VARIANTS`. */
   variantCount: number;
+  /** Whether the request asks for finishes and light at all. A pure layout request does not. */
+  finishes: boolean;
+  /** How the room's furniture should be arranged, or null when the request says nothing about it. */
+  layout: LayoutIntent | null;
 }
 
 export type ValidatedIntent = { ok: true; intent: DesignIntent } | { ok: false; reason: string };
@@ -64,7 +73,8 @@ function intentOf(value: unknown): DesignIntent {
   const count = v.variantCount === undefined ? 1 : finite(v.variantCount, "variantCount");
   if (!Number.isInteger(count) || count < 1) throw new Error("variantCount must be a whole number of at least 1");
   if (count > MAX_VARIANTS) throw new Error(`variantCount must be at most ${MAX_VARIANTS}`);
-  return {
+  if (v.finishes !== undefined && typeof v.finishes !== "boolean") throw new Error("finishes must be true or false");
+  const intent: DesignIntent = {
     version: DESIGN_INTENT_VERSION,
     styles,
     atmosphere: v.atmosphere == null ? null : text(v.atmosphere, "atmosphere"),
@@ -75,8 +85,18 @@ function intentOf(value: unknown): DesignIntent {
     minimalism: axis(v.minimalism, "minimalism"),
     coziness: axis(v.coziness, "coziness"),
     variantCount: count,
+    finishes: v.finishes !== false,
+    layout: layoutIntentOf(v.layout),
   };
+  if (!intent.finishes) {
+    const asked = intent.styles.length > 0 || intent.atmosphere !== null || FINISH_AXES.some((name) => intent[name] !== null);
+    if (asked) throw new Error("a style or an atmosphere asks for finishes, but finishes is false");
+    if (!intent.layout || intent.layout.preserve) throw new Error("the intent asks for neither finishes nor a layout");
+  }
+  return intent;
 }
+
+const FINISH_AXES = ["warmth", "brightness", "contrast", "luxury", "minimalism", "coziness"] as const;
 
 /** The intent's axes, with the ones it said nothing about at zero. */
 export function axesOf(intent: DesignIntent): StyleAxes {

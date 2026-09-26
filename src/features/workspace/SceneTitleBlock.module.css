@@ -58,6 +58,30 @@
   color: var(--ink-3);
 }
 
+.qualifier[data-problem] {
+  color: var(--signal);
+}
+
+/* A reading still catching up with a piece being moved. */
+.row[data-settling] dd {
+  opacity: 0.5;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+/* With design directions open, the block takes its place beneath them in
+   the same left column — the same width, a smaller photograph — so both can
+   be read and neither is laid over the middle of the room. */
+:global([data-designs]) .block {
+  left: var(--space-3);
+  bottom: var(--space-3);
+  width: var(--design-rail-width, 17.5rem);
+  max-width: calc(100% - var(--space-6));
+}
+
+:global([data-designs]) .row[data-photo] img {
+  max-height: 4.5rem;
+}
+
 /* On a phone the room needs every pixel; the readings live in the panels. */
 @media (max-width: 60rem) {
   .block {

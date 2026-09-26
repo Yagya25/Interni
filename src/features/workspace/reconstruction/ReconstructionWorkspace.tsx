@@ -51,7 +51,7 @@ export function ReconstructionWorkspace({ runId }: { runId: string }) {
         name={scene.room.label}
         palette={scene.materials}
         interpreter={interpreter}
-        source={{ photograph: runFileUrl(runId, "source.jpg"), scale: evidence.scale.basis, evidence }}
+        source={{ photograph: runFileUrl(runId, "source.jpg"), scale: evidence.scale.basis, evidence, calibrationProblem: state.calibrationProblem }}
       />
     );
   }

@@ -1,6 +1,7 @@
 import type { SceneOperation } from "@/scene/model/operations";
 import type { Id } from "@/scene/model/types";
 import type { ProposedChange } from "../ai/interpreter";
+import type { LayoutSummary } from "./layout/report";
 import type { DesignStyle } from "./styles";
 
 /**
@@ -15,6 +16,10 @@ import type { DesignStyle } from "./styles";
  *
  * `status` is the proposal's place in that life: drafted, previewed in the
  * room, applied to the document, or set aside.
+ *
+ * A proposal may carry finishes, light, a layout, or finishes and a layout
+ * together; they are all operations in the one list, so preview, apply and
+ * undo treat a moved sofa and a repainted wall the same way.
  */
 
 export type ProposalStatus = "draft" | "preview" | "applied" | "rejected";
@@ -24,14 +29,19 @@ export interface ProposalPreview {
   changedObjectCount: number;
   changedMaterialCount: number;
   changedLightCount: number;
+  /** Pieces the proposal moves or turns. */
+  movedObjectCount: number;
+  /** Pieces whose finishes the proposal recolours. */
+  restyledObjectCount: number;
 }
 
 export interface DesignProposal {
   /** Stable for a given style and variant, so the same request names the same proposal. */
   id: string;
   title: string;
-  style: DesignStyle;
-  /** Which reading of the style this is: "warm", "neutral", "dark-accent". */
+  /** The finish style, or null for a proposal that only rearranges the furniture. */
+  style: DesignStyle | null;
+  /** Which reading this is: "warm", "neutral", "dark-accent"; a layout's "facing", "around", "open". */
   variant: string;
   description: string;
   designGoals: readonly string[];
@@ -51,6 +61,8 @@ export interface DesignProposal {
   changes: readonly ProposedChange[];
   preview: ProposalPreview;
   status: ProposalStatus;
+  /** What the proposal's layout does to the room as a whole, when it has one. */
+  layout: LayoutSummary | null;
 }
 
 /** Why a proposal was not offered, in the person's terms. */
@@ -65,6 +77,8 @@ export const previewOf = (operations: readonly SceneOperation[]): ProposalPrevie
   changedObjectCount: distinct(operations.flatMap((op) => ("objectId" in op ? [op.objectId] : []))).length,
   changedMaterialCount: distinct(operations.flatMap((op) => (op.kind === "restyle" || op.kind === "resurface" ? [op.to.id] : []))).length,
   changedLightCount: distinct(operations.flatMap((op) => (op.kind === "relight" ? [op.lightId] : []))).length,
+  movedObjectCount: distinct(operations.flatMap((op) => (op.kind === "move" ? [op.objectId] : []))).length,
+  restyledObjectCount: distinct(operations.flatMap((op) => (op.kind === "restyle" ? [op.objectId] : []))).length,
 });
 
 /** The same proposal at another point in its life. Pure: the original is untouched. */

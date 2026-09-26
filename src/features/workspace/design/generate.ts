@@ -7,6 +7,7 @@ import type { ProposedChange } from "../ai/interpreter";
 import { adjust } from "../state/edits";
 import { analyseScene, type DesignAnalysis, type SlotFinish } from "./analysis";
 import { axesOf, MAX_VARIANTS, type DesignIntent } from "./intent";
+import { planLayouts, type PlannedLayout } from "./layout/layouts";
 import { MESSAGES } from "./messages";
 import { distinct, previewOf, type DesignProposal, type RejectedProposal } from "./proposal";
 import { resolveScheme, STYLES, STYLE_ORDER, styleFor, type DesignScheme, type DesignStyle } from "./styles";
@@ -17,6 +18,10 @@ import { validateOperations } from "./validate";
  * ================================================================
  *
  *   Scene + DesignAnalysis + DesignIntent → DesignProposal[]
+ *
+ * A proposal is finishes and light (a style's scheme), a layout of the
+ * furniture the room already has (`layout/`), or one of each together —
+ * always as the one list of operations the workspace's history applies.
  *
  * Deterministic all the way through: the styles are a fixed table, the
  * variants are a fixed table, the room is read in its own order, and every
@@ -32,49 +37,50 @@ export interface GenerationResult {
   ok: boolean;
   analysis: DesignAnalysis;
   proposals: readonly DesignProposal[];
-  /** Proposals the validator would not pass, with why. Usually empty. */
+  /** Proposals the validator would not pass, or directions that could not be made here, with why. */
   rejected: readonly RejectedProposal[];
   /** Set when nothing could be offered. */
   reason?: string;
 }
 
-export function generateProposals(scene: Scene, intent: DesignIntent, analysis = analyseScene(scene)): GenerationResult {
-  const axes = axesOf(intent);
-  const count = Math.min(Math.max(1, Math.round(intent.variantCount)), MAX_VARIANTS);
-  const proposals: DesignProposal[] = [];
-  const rejected: RejectedProposal[] = [];
+/** One style's reading, planned against the room: the finishes-and-light half of a proposal. */
+interface FinishDirection {
+  id: string;
+  style: DesignStyle;
+  scheme: DesignScheme;
+  planned: Planned;
+}
 
-  for (const [style, variantIndex] of readings(intent.styles, count, axes)) {
-    const preset = STYLES[style];
-    const scheme = resolveScheme(preset, preset.variants[variantIndex], axes);
-    const planned = plan(scene, analysis, scheme);
-    const id = `${kebab(style)}-${scheme.variant.key}`;
-    if (planned.operations.length === 0) {
-      rejected.push({ id, title: scheme.title, reason: MESSAGES.nothingToChange });
-      continue;
-    }
-    const checked = validateOperations(scene, planned.operations);
+export function generateProposals(scene: Scene, intent: DesignIntent, analysis = analyseScene(scene)): GenerationResult {
+  const count = Math.min(Math.max(1, Math.round(intent.variantCount)), MAX_VARIANTS);
+  const rejected: RejectedProposal[] = [];
+  const layout = intent.layout && !intent.layout.preserve ? intent.layout : null;
+
+  const finishes = intent.finishes ? finishDirections(scene, analysis, intent, count, rejected, layout !== null) : [];
+  const layouts = layout ? planLayouts(scene, analysis.layout, layout, count) : null;
+  if (layouts) rejected.push(...layouts.rejected);
+  const arranged = layouts?.layouts ?? [];
+
+  // Pair them: the first layout with the first finish reading, and so on; the
+  // shorter list repeats its last. With only one half asked for, or only one
+  // half possible here, each proposal is that half alone.
+  const pick = <T,>(list: readonly T[], i: number): T | null => list[i] ?? list[list.length - 1] ?? null;
+  const drafts: DesignProposal[] = [];
+  const total = Math.min(count, Math.max(finishes.length, arranged.length));
+  for (let i = 0; i < total; i++) drafts.push(proposalOf(pick(finishes, i), pick(arranged, i), intent));
+
+  const proposals: DesignProposal[] = [];
+  const seen = new Set<string>();
+  for (const draft of drafts) {
+    const checked = validateOperations(scene, draft.operations);
     if (!checked.ok) {
-      rejected.push({ id, title: scheme.title, reason: checked.reason });
+      rejected.push({ id: draft.id, title: draft.title, reason: checked.reason });
       continue;
     }
-    proposals.push({
-      id,
-      title: scheme.title,
-      style,
-      variant: scheme.variant.key,
-      description: scheme.variant.note,
-      designGoals: scheme.goals,
-      operations: planned.operations,
-      affectedObjects: distinct(planned.operations.flatMap((op) => (op.kind === "restyle" ? [op.objectId] : []))),
-      affectedMaterials: distinct(planned.operations.flatMap((op) => (op.kind === "restyle" || op.kind === "resurface" ? [op.to.id] : []))),
-      affectedLighting: distinct(planned.operations.flatMap((op) => (op.kind === "relight" ? [op.lightId] : []))),
-      rationale: planned.rationale,
-      constraints: planned.constraints,
-      changes: planned.changes,
-      preview: previewOf(planned.operations),
-      status: "draft",
-    });
+    const signature = JSON.stringify(draft.operations);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    proposals.push(draft);
   }
 
   return {
@@ -82,8 +88,66 @@ export function generateProposals(scene: Scene, intent: DesignIntent, analysis =
     analysis,
     proposals,
     rejected,
-    ...(proposals.length === 0 && { reason: rejected[0]?.reason ?? MESSAGES.nothingToChange }),
+    ...(proposals.length === 0 && { reason: noneReason(rejected, layout !== null && !intent.finishes) }),
   };
+}
+
+/** Why nothing could be offered, in the person's terms. */
+function noneReason(rejected: readonly RejectedProposal[], layoutOnly: boolean): string {
+  const first = rejected[0]?.reason;
+  if (!first) return MESSAGES.noProposals;
+  return layoutOnly ? MESSAGES.noLayout(first) : first;
+}
+
+/** A finish direction, a layout, or both, as one proposal. */
+function proposalOf(finish: FinishDirection | null, moves: PlannedLayout | null, intent: DesignIntent): DesignProposal {
+  const layoutOps = moves?.plan.operations ?? [];
+  const finishOps = finish?.planned.operations ?? [];
+  const operations = [...layoutOps, ...finishOps];
+  const constraints = [
+    ...(moves?.report.constraints ?? []),
+    // A finish direction's own promise not to move furniture no longer holds once it carries a layout.
+    ...(finish?.planned.constraints ?? []).map((c) => (moves && c === "No furniture is moved, added or taken away" ? "No furniture is added or taken away" : c)),
+    ...(moves && !finish ? [MESSAGES.layoutOnly] : []),
+    ...(!moves && intent.layout?.preserve ? [MESSAGES.preserved] : []),
+  ];
+  return {
+    id: [finish?.id, moves?.id].filter(Boolean).join("+"),
+    title: [moves?.title, finish?.scheme.title].filter(Boolean).join(" · "),
+    style: finish?.style ?? null,
+    variant: finish?.scheme.variant.key ?? moves!.reading.key,
+    description: [moves?.note, finish?.scheme.variant.note].filter(Boolean).join(" "),
+    designGoals: [...(moves?.goals ?? []), ...(finish?.scheme.goals ?? [])],
+    operations,
+    affectedObjects: distinct(operations.flatMap((op) => (op.kind === "restyle" || op.kind === "move" ? [op.objectId] : []))),
+    affectedMaterials: distinct(operations.flatMap((op) => (op.kind === "restyle" || op.kind === "resurface" ? [op.to.id] : []))),
+    affectedLighting: distinct(operations.flatMap((op) => (op.kind === "relight" ? [op.lightId] : []))),
+    rationale: [...(moves?.report.rationale ?? []), ...(finish?.planned.rationale ?? [])],
+    constraints: distinct(constraints),
+    changes: [...(moves?.report.changes ?? []), ...(finish?.planned.changes ?? [])],
+    preview: previewOf(operations),
+    status: "draft",
+    layout: moves?.report.summary ?? null,
+  };
+}
+
+/** Each style reading asked for, planned against the room; one with nothing to change is set aside with why. */
+function finishDirections(scene: Scene, analysis: DesignAnalysis, intent: DesignIntent, count: number, rejected: RejectedProposal[], withLayout: boolean): FinishDirection[] {
+  const axes = axesOf(intent);
+  const out: FinishDirection[] = [];
+  for (const [style, variantIndex] of readings(intent.styles, count, axes)) {
+    const preset = STYLES[style];
+    const scheme = resolveScheme(preset, preset.variants[variantIndex], axes);
+    const planned = plan(scene, analysis, scheme);
+    const id = `${kebab(style)}-${scheme.variant.key}`;
+    if (planned.operations.length === 0) {
+      // Alongside a layout, a finish reading with nothing to do simply isn't there.
+      if (!withLayout) rejected.push({ id, title: scheme.title, reason: MESSAGES.nothingToChange });
+      continue;
+    }
+    out.push({ id, style, scheme, planned });
+  }
+  return out;
 }
 
 /**

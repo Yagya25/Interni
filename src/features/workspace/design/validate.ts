@@ -4,6 +4,7 @@ import { findById } from "@/scene/model/queries";
 import type { Scene } from "@/scene/model/types";
 import { footprintOf, insideRoom } from "../ai/rules/spatial";
 import { SCALE_LIMITS } from "../ai/command";
+import { validateLayout } from "./layout/validate";
 
 /**
  * Nothing is shown that the room cannot take.
@@ -19,7 +20,8 @@ import { SCALE_LIMITS } from "../ai/command";
  * The check is deliberately wider than what the deterministic generator can
  * produce today. It is the boundary a future generator — or a model asked
  * for a bolder plan — has to pass, so it verifies transforms too, and the
- * generator's own restraint is not what keeps the room valid.
+ * generator's own restraint is not what keeps the room valid. Moves are
+ * held to the layout's hard constraints (`layout/validate.ts`).
  */
 
 export type ProposalCheck = { ok: true } | { ok: false; reason: string };
@@ -38,6 +40,10 @@ export function validateOperations(scene: Scene, operations: readonly SceneOpera
     }
     const placed = new Set(operations.flatMap((op) => (op.kind === "move" || op.kind === "scale" ? [op.objectId] : [])));
     structural(scene, working, placed);
+    // A plan that moves furniture answers to the layout's hard constraints as well:
+    // what may move, collisions, walls, doorways and whether the room can still be walked.
+    const layout = validateLayout(scene, working, operations);
+    if (!layout.ok) return layout;
     return { ok: true };
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : String(error) };

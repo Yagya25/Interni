@@ -6,6 +6,7 @@ import type { SceneObject, Surface, Vec3 } from "@/scene/model/types";
 import { Field, NumberField, Reading } from "./controls/Controls";
 import { Panel, Section } from "./panels/Panel";
 import type { EntityEvidence } from "@/scene/compile/evidence";
+import { SizeReading, SpaceSection } from "./InspectorSpace";
 import { describeFinish } from "./reconstruction/describe";
 import { useStageHandle } from "./scene/StageContext";
 import { useWorkspaceSource } from "./sourceContext";
@@ -72,10 +73,7 @@ export function Inspector({ object }: { object: SceneObject }) {
               .map(([slot, id]) => `${slot}: ${findById(scene.materials, id)?.name ?? id}`)
               .join(", ")}
           />
-          <Reading
-            label="Size"
-            value={`${formatMetres(w * sx)} × ${formatMetres(d * sz)} × ${formatMetres(h * sy)}`}
-          />
+          <SizeReading id={object.id} fallback={`${formatMetres(w * sx)} × ${formatMetres(d * sz)} × ${formatMetres(h * sy)}`} />
           {seen && (
             <>
               <Reading label="Seen" value={seen.detected} />
@@ -84,6 +82,8 @@ export function Inspector({ object }: { object: SceneObject }) {
           )}
         </dl>
       </Section>
+
+      <SpaceSection id={object.id} />
 
       {finishes.length > 0 && (
         <Section title="Finish found">

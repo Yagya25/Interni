@@ -1,4 +1,5 @@
 import { MAX_VARIANTS } from "./intent";
+import { isLayoutRequest, readLayout } from "./layout/read";
 import type { DesignStyle } from "./styles";
 
 /**
@@ -18,6 +19,13 @@ import type { DesignStyle } from "./styles";
  * atmosphere the edit vocabulary has no word for — luxurious, cozy,
  * minimal. The two are kept apart deliberately: one changes the room, the
  * other offers directions for it.
+ *
+ * Layouts follow the same line. "Move the sofa 30 cm left" is an edit;
+ * "give me three furniture layouts", "make the seating more social" and
+ * "arrange the room around the TV" are requests for arrangements of the
+ * furniture the room already has (`layout/read.ts`). Style words that
+ * describe a layout — "a cozy conversation layout" — describe the layout,
+ * and do not also ask for new finishes.
  */
 
 export interface DesignIntentProvider {
@@ -41,6 +49,12 @@ export type DesignRequest =
 /** Words that make a sentence a design request rather than an edit. */
 const DESIGN_NOUN = "(?:designs?|redesigns?|makeovers?|schemes?|variants?|versions?|options?|directions?|ideas?|concepts?|styles?|palettes?|moodboards?|atmospheres?|vibes?)";
 const DESIGN_NOUNS = new RegExp(`\\b${DESIGN_NOUN}\\b`);
+const LAYOUT_NOUN = "(?:layouts?|arrangements?)";
+/** Anything that can be counted, or pointed at on screen: a design or a layout. */
+const DIRECTION_NOUN = `(?:${DESIGN_NOUN}|${LAYOUT_NOUN})`;
+const DIRECTION_NOUNS = new RegExp(`\\b${DIRECTION_NOUN}\\b`);
+/** Words that ask for new finishes, once a layout's own words are set aside. */
+const FINISH_NOUNS = /\b(designs?|redesigns?|makeovers?|schemes?|palettes?|styles?|moodboards?|finish|finishes|colou?rs?|paint)\b/;
 const FEEL = /\b(feel|feels|feeling|mood)\b/;
 
 const STYLE_WORDS: readonly { pattern: RegExp; style: DesignStyle }[] = [
@@ -113,7 +127,13 @@ export function normalise(input: string): string {
 export function readDesignRequest(input: string): DesignRequest | null {
   const text = normalise(input);
   if (!text) return null;
-  return readSessionAction(text) ?? (isBrief(text) ? { kind: "brief" } : null);
+  const read = readLayout(text);
+  // "Preview the third layout" names a layout and asks nothing of it: an act on what is on screen.
+  if (!read?.concepts) {
+    const act = readSessionAction(text);
+    if (act) return act;
+  }
+  return isLayoutRequest(text) || isBrief(text) ? { kind: "brief" } : null;
 }
 
 /** A style named, a design asked for by name, or an atmosphere the edit vocabulary has no word for. */
@@ -126,14 +146,16 @@ function isBrief(text: string): boolean {
 function readSessionAction(text: string): DesignRequest | null {
   if (STYLE_WORDS.some(({ pattern }) => pattern.test(text))) return null;
   const ordinal = ordinalIn(text);
-  const names = DESIGN_NOUNS.test(text) || /\b(preview|it|this|that|one)\b/.test(text);
+  const names = DIRECTION_NOUNS.test(text) || /\b(preview|it|this|that|one)\b/.test(text);
   if (/\b(exit|leave|stop|close|discard|dismiss|cancel|clear|never mind|forget)\b/.test(text) && names) {
     return { kind: "session", action: "dismiss", ordinal: null };
   }
+  // "Show me three layouts" asks for new ones; "show me the second layout" points at one on screen.
+  if (ordinal === null && /\b(designs|redesigns|schemes|variants|versions|options|directions|ideas|concepts|layouts|arrangements)\b/.test(text)) return null;
   if (/\b(apply|use|keep|take|go with|choose|pick)\b/.test(text) && (ordinal !== null || names)) {
     return { kind: "session", action: "apply", ordinal };
   }
-  if (/\b(preview|show|see|try|view|look at)\b/.test(text) && (ordinal !== null || DESIGN_NOUNS.test(text))) {
+  if (/\b(preview|show|see|try|view|look at)\b/.test(text) && (ordinal !== null || DIRECTION_NOUNS.test(text))) {
     return { kind: "session", action: "preview", ordinal };
   }
   // "the second one", with designs on screen and nothing else asked.
@@ -149,41 +171,61 @@ function readSessionAction(text: string): DesignRequest | null {
  */
 export function readBrief(input: string): unknown | null {
   const text = normalise(input);
-  if (!text || !isBrief(text)) return null;
+  if (!text) return null;
+  const read = readLayout(text);
+  const layout = read && !read.layout.preserve ? read.layout : null;
+  if (!layout && !isBrief(text)) return null;
+  // With a layout asked for, only the words left over can ask for finishes,
+  // and they have to name a style, a palette or an atmosphere to do it.
+  const rest = read ? read.rest : text;
+  const finishes = layout ? asksForFinishes(rest) : true;
 
   const styles: DesignStyle[] = [];
-  for (const { pattern, style } of STYLE_WORDS) {
-    if (pattern.test(text) && !styles.includes(style)) styles.push(style);
+  const axes: Record<Axis, number | null> = { warmth: null, brightness: null, contrast: null, luxury: null, minimalism: null, coziness: null };
+  const words: string[] = [];
+  if (finishes) {
+    for (const { pattern, style } of STYLE_WORDS) {
+      if (pattern.test(rest) && !styles.includes(style)) styles.push(style);
+    }
+    const strength = STRONG.test(rest) ? 1 : SLIGHT.test(rest) ? 0.35 : 0.65;
+    for (const name of AXIS_NAMES) {
+      const { sign, found } = axisIn(rest, AXES[name].up, AXES[name].down);
+      if (sign === 0) continue;
+      axes[name] = round(sign * strength, 0.01);
+      words.push(...found);
+    }
   }
   // A compound match already claimed its words: "dark contemporary" must not
   // also read as plain "modern".
   const chosen = styles[0] === "DARK_CONTEMPORARY" ? styles.filter((s) => s !== "MODERN_WARM") : styles;
 
-  const strength = STRONG.test(text) ? 1 : SLIGHT.test(text) ? 0.35 : 0.65;
-  const axes: Record<Axis, number | null> = { warmth: null, brightness: null, contrast: null, luxury: null, minimalism: null, coziness: null };
-  const words: string[] = [];
-  for (const name of AXIS_NAMES) {
-    const { sign, found } = axisIn(text, AXES[name].up, AXES[name].down);
-    if (sign === 0) continue;
-    axes[name] = round(sign * strength, 0.01);
-    words.push(...found);
-  }
-
   return {
-    version: "design-intent-0.1",
+    version: "design-intent-0.2",
     styles: chosen,
     atmosphere: words.length ? [...new Set(words)].join(", ") : null,
     ...axes,
     variantCount: countIn(text),
+    finishes,
+    layout: read?.layout.preserve ? { ...read.layout } : layout,
   };
+}
+
+/** Whether words left over from a layout request still ask for finishes. */
+function asksForFinishes(rest: string): boolean {
+  if (FINISH_NOUNS.test(rest) || STYLE_WORDS.some(({ pattern }) => pattern.test(rest))) return true;
+  return AXIS_NAMES.some((name) => AXES[name].up.test(rest) || AXES[name].down.test(rest));
 }
 
 /** The deterministic provider this build uses. No model, no network, no key. */
 export const designRules: DesignIntentProvider = {
   kind: "rules",
   name: "Design rules",
-  note: "Reads a style or an atmosphere into a design brief, then builds the directions from this room's own analysis. It is rule-based, not a language model.",
+  note: "Reads a style, an atmosphere or a layout into a design brief, then builds the directions from this room's own analysis. It is rule-based, not a language model.",
   examples: [
+    "Give me three furniture layouts",
+    "Make the seating more social",
+    "Arrange the room around the TV",
+    "Make the room more open",
     "Give me 3 modern designs",
     "Show me a Scandinavian version",
     "Make this room feel warmer and more luxurious",
@@ -227,16 +269,16 @@ function countIn(text: string): number {
   if (digits) return Number(digits[1]);
   // Longest first, so "a couple of designs" is two rather than "a … design".
   for (const [word, value] of [...Object.entries(NUMBER_WORDS)].sort((a, b) => b[0].length - a[0].length)) {
-    if (new RegExp(`\\b${word}\\s+(?:\\w+\\s+){0,2}?${DESIGN_NOUN}\\b`).test(text)) return value;
+    if (new RegExp(`\\b${word}\\s+(?:\\w+\\s+){0,2}?${DIRECTION_NOUN}\\b`).test(text)) return value;
   }
-  // "designs", "options", "some ideas": a plural asks for a spread.
-  if (/\b(designs|redesigns|schemes|variants|versions|options|directions|ideas|concepts)\b/.test(text)) return MAX_VARIANTS;
+  // "designs", "options", "some ideas", "layouts": a plural asks for a spread.
+  if (/\b(designs|redesigns|schemes|variants|versions|options|directions|ideas|concepts|layouts|arrangements)\b/.test(text)) return MAX_VARIANTS;
   return 1;
 }
 
 function ordinalIn(text: string): number | null {
   for (const [word, value] of Object.entries(ORDINALS)) if (new RegExp(`\\b${word}\\b`).test(text)) return value;
-  const numbered = text.match(/\b(?:design|option|version|variant|scheme|idea|direction|one)\s+(\d+)\b/) ?? text.match(/\b(\d+)(?:st|nd|rd|th)\b/);
+  const numbered = text.match(/\b(?:design|option|version|variant|scheme|idea|direction|layout|arrangement|one)\s+(\d+)\b/) ?? text.match(/\b(\d+)(?:st|nd|rd|th)\b/);
   return numbered ? Number(numbered[1]) : null;
 }
 

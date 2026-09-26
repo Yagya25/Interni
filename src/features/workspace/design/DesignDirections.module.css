@@ -1,16 +1,18 @@
 /* Directions sit in a narrow column against the room's left edge. The room
    is what is being designed, so the cards never take more width than they
-   need to be read, and never cover the middle of the view. */
+   need to be read, and never cover the middle of the view. The room's title
+   block shares the column beneath them: the rail stops above it, by the
+   height the block reports (`--title-block-space`), rather than covering it. */
 
 .rail {
   position: absolute;
   top: var(--space-3);
   left: var(--space-3);
-  bottom: var(--space-3);
+  bottom: calc(var(--space-3) + var(--title-block-space, 0px));
   z-index: 3;
   display: flex;
   flex-direction: column;
-  width: 17.5rem;
+  width: var(--design-rail-width, 17.5rem);
   max-width: calc(100% - var(--stage-inset-right, 0px) - var(--space-6));
   border: 1px solid var(--rule-strong);
   background: var(--paper-raised);

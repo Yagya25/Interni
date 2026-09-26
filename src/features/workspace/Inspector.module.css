@@ -65,3 +65,16 @@
   border: 1px solid var(--rule);
   padding: 0 0.25rem;
 }
+
+/* What a reading cannot claim, and how it is known: said beneath it, quietly. */
+.qualifier {
+  display: block;
+  font-size: var(--text-label);
+  color: var(--ink-3);
+}
+
+/* Space readings still catching up with a piece being moved. */
+.space[data-settling] {
+  opacity: 0.5;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}

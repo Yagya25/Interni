@@ -76,6 +76,7 @@ function Shell() {
 
   const tool = useWorkspace((s) => s.tool);
   const selected = useSelectedObject();
+  const designing = useWorkspace((s) => s.design !== null);
 
   return (
     <StageProvider value={handle}>
@@ -89,7 +90,8 @@ function Shell() {
         {tool === "camera" && <CameraPanel />}
 
         {/* The room is the page's content, and where the skip link lands. */}
-        <main id={anchors.main} tabIndex={-1} className={styles.stage} data-region="stage">
+        {/* Marked while design directions are open, so the title block can take its place beneath them. */}
+        <main id={anchors.main} tabIndex={-1} className={styles.stage} data-region="stage" data-designs={designing ? "" : undefined}>
           <Viewport canvasRef={canvasRef} viewportRef={viewportRef} />
           <DesignDirections />
           <ChangeProposal />

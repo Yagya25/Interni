@@ -103,7 +103,8 @@ export function separation(a: Footprint, b: Footprint) {
   return best;
 }
 
-const heightsMeet = (a: Footprint, b: Footprint) => a.y0 < b.y1 - 0.005 && b.y0 < a.y1 - 0.005;
+/** Whether two footprints share any height: a shelf above a table does not meet it. */
+export const heightsMeet = (a: Footprint, b: Footprint) => a.y0 < b.y1 - 0.005 && b.y0 < a.y1 - 0.005;
 
 /**
  * What a moving piece must not pass through: every other piece with some
@@ -318,7 +319,8 @@ export function nearestWall(scene: Scene, point: Vec3): WallSurface | null {
   return best;
 }
 
-function distanceToWall(w: WallSurface, p: Vec3) {
+/** Plan distance from a point to a wall's base line. */
+export function distanceToWall(w: WallSurface, p: Vec3) {
   const dx = w.end[0] - w.start[0];
   const dz = w.end[1] - w.start[1];
   const len2 = dx * dx + dz * dz || 1;

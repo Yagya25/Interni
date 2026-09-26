@@ -100,7 +100,7 @@ describe("the provider boundary", () => {
 describe("the analysis", () => {
   it("reads the room from the Scene and invents nothing", () => {
     const analysis = analyseScene(ROOM);
-    expect(analysis.version).toBe("design-analysis-0.1");
+    expect(analysis.version).toBe("design-analysis-0.2");
     expect(analysis.room.width).toBeCloseTo(roomBounds(ROOM).max[0] - roomBounds(ROOM).min[0], 3);
     expect(analysis.furniture.count).toBe(ROOM.objects.length);
     expect(analysis.materials.walls.map((w) => w.surfaceId)).toEqual(ROOM.surfaces.filter((s) => s.kind === "wall").map((s) => s.id));

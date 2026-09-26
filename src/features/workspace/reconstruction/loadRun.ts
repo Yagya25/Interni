@@ -18,6 +18,11 @@ export type RunState =
       status: "compiled";
       intermediate: ReconstructionIntermediate;
       calibration: readonly CalibrationReference[];
+      /**
+       * Why a calibration the run has could not be used, or null. A run with
+       * no calibration at all has none to report: its scale is simply estimated.
+       */
+      calibrationProblem: string | null;
       result: CompileResult;
     };
 
@@ -41,18 +46,43 @@ export async function loadRun(runId: string): Promise<RunState> {
     return { status: "failed", code: parsed.run.diagnostics.errors[0]?.code ?? "worker-failed" };
   }
 
-  let calibration: readonly CalibrationReference[] = [];
-  const cal = await fetch(runFileUrl(runId, "calibration.json"), { cache: "no-store" });
-  if (cal.ok) {
-    const file = parseCalibration(await cal.json());
-    if (typeof file === "string") {
-      console.error("[reconstruction] calibration.json ignored:", file);
-    } else {
-      calibration = file.references;
-    }
-  }
+  const { references: calibration, problem: calibrationProblem } = await readCalibration(runId);
   const result = compileRoomShell(parsed.intermediate, { calibration });
-  return { status: "compiled", intermediate: parsed.intermediate, calibration, result };
+  return { status: "compiled", intermediate: parsed.intermediate, calibration, calibrationProblem, result };
+}
+
+/**
+ * A run's calibration, if it has one. Three different answers, kept apart:
+ * none measured (204, the usual case — the room's scale stays estimated,
+ * and nothing is wrong); one measured and read; or one that could not be
+ * fetched, read or understood — which is reported, in the console and to
+ * the workspace, rather than quietly treated as "not calibrated".
+ */
+async function readCalibration(runId: string): Promise<{ references: readonly CalibrationReference[]; problem: string | null }> {
+  const failed = (problem: string) => {
+    console.error(`[reconstruction] ${problem}`);
+    return { references: [], problem };
+  };
+  let response: Response;
+  try {
+    response = await fetch(runFileUrl(runId, "calibration.json"), { cache: "no-store" });
+  } catch (error) {
+    return failed(`calibration.json could not be fetched: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (response.status === 204) return { references: [], problem: null };
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    return failed(`calibration.json could not be read (HTTP ${response.status}${body?.code ? `, ${body.code}` : ""})`);
+  }
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    return failed("calibration.json is not valid JSON");
+  }
+  const file = parseCalibration(json);
+  if (typeof file === "string") return failed(`calibration.json was ignored: ${file}`);
+  return { references: file.references, problem: null };
 }
 
 /** What a person reads when a run can't be shown. Looked up by code, never built from an error. */

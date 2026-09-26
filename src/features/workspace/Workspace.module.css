@@ -55,6 +55,8 @@
 .stage {
   grid-area: stage;
   position: relative;
+  /* The design directions' column against the stage's left edge; the title block shares it while they are open. */
+  --design-rail-width: 17.5rem;
   /* One row that fills the cell, so the canvas always has a height to take. */
   display: grid;
   grid-template-rows: minmax(0, 1fr);

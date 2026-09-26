@@ -13,7 +13,8 @@ import type { DesignProposal } from "./proposal";
  * you are looking at. Each card is a plan — what it would change, why, and
  * what it deliberately leaves alone — and nothing on it has touched the
  * document. Preview lays one over the room; Apply hands it to the history
- * as a single step, which one undo takes back.
+ * as a single step, which one undo takes back. A layout is a card like any
+ * other: directions side by side, none scored and none called the best.
  */
 export function DesignDirections() {
   const store = useStore();
@@ -80,9 +81,10 @@ function Card({ proposal, previewing, applied, open, onToggle }: CardProps) {
       <p className={styles.note}>{proposal.description}</p>
 
       <p className={styles.measures}>
-        <span>{preview.changedMaterialCount} finishes</span>
-        <span>{preview.changedObjectCount} pieces</span>
-        <span>{preview.changedLightCount === 1 ? "1 light" : `${preview.changedLightCount} lights`}</span>
+        {preview.movedObjectCount > 0 && <span>{preview.movedObjectCount === 1 ? "1 piece moved" : `${preview.movedObjectCount} pieces moved`}</span>}
+        {preview.changedMaterialCount > 0 && <span>{preview.changedMaterialCount} finishes</span>}
+        {preview.restyledObjectCount > 0 && <span>{preview.restyledObjectCount} pieces</span>}
+        {preview.changedLightCount > 0 && <span>{preview.changedLightCount === 1 ? "1 light" : `${preview.changedLightCount} lights`}</span>}
       </p>
 
       <div className={styles.buttons}>

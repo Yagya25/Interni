@@ -11,6 +11,7 @@ import type {
   Scene,
   SceneObject,
 } from "@/scene/model/types";
+import { analyseLayout, type LayoutAnalysis } from "./layout/analysis";
 
 /**
  * What this room actually is.
@@ -25,7 +26,7 @@ import type {
  * field, so two identical requests cannot produce different proposals.
  */
 
-export const ANALYSIS_VERSION = "design-analysis-0.1";
+export const ANALYSIS_VERSION = "design-analysis-0.2";
 
 export interface SurfaceFinish {
   surfaceId: Id;
@@ -119,6 +120,12 @@ export interface DesignAnalysis {
     woodPresent: boolean;
     fabricPresent: boolean;
   };
+  /**
+   * The room as a plan: roles, footprints, clearances, relationships as the
+   * geometry now holds them, and whether a person can get round it. What a
+   * layout is planned from.
+   */
+  layout: LayoutAnalysis;
 }
 
 const SEATING: readonly ObjectCategory[] = ["sofa", "armchair", "lounge-chair", "chair", "bench", "ottoman"];
@@ -242,6 +249,7 @@ export function analyseScene(scene: Scene): DesignAnalysis {
       woodPresent: covering.some((c) => c.class === "wood"),
       fabricPresent: covering.some((c) => c.class === "fabric" || c.class === "leather"),
     },
+    layout: analyseLayout(scene),
   };
 }
 

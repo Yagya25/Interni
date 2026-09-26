@@ -15,6 +15,8 @@ export interface WorkspaceSource {
   scale: "estimated" | "calibrated";
   /** How each reconstructed value was known, keyed by Scene id. */
   evidence?: SceneEvidence;
+  /** Why a calibration the run has could not be used, when it could not; the scale then stays estimated. */
+  calibrationProblem?: string | null;
 }
 
 const SourceContext = createContext<WorkspaceSource | null>(null);
