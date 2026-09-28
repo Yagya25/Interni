@@ -6,6 +6,7 @@ import type { SceneObject, Surface, Vec3 } from "@/scene/model/types";
 import { Field, NumberField, Reading } from "./controls/Controls";
 import { Panel, Section } from "./panels/Panel";
 import type { EntityEvidence } from "@/scene/compile/evidence";
+import { InspectorEvidence } from "./InspectorEvidence";
 import { SizeReading, SpaceSection } from "./InspectorSpace";
 import { describeFinish } from "./reconstruction/describe";
 import { useStageHandle } from "./scene/StageContext";
@@ -84,6 +85,8 @@ export function Inspector({ object }: { object: SceneObject }) {
       </Section>
 
       <SpaceSection id={object.id} />
+
+      <InspectorEvidence object={object} />
 
       {finishes.length > 0 && (
         <Section title="Finish found">

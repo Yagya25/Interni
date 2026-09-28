@@ -33,7 +33,8 @@ import {
   type WorkspaceDocument,
 } from "./document";
 
-export type ToolId = "ai" | "objects" | "materials" | "lighting" | "camera";
+/** "evidence" and "calibrate" exist only for a reconstructed room. */
+export type ToolId = "ai" | "objects" | "materials" | "lighting" | "camera" | "evidence" | "calibrate";
 
 export interface WorkspaceState {
   doc: WorkspaceDocument;

@@ -142,3 +142,20 @@ export const ZoomOutIcon = (p: IconProps) => (
     <path d="M4.5 12h15" />
   </Glyph>
 );
+
+/** A section cut with its dimension line: how each value was known. */
+export const EvidenceIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <path d="M4 4.5h12.5l3.5 3.5v11.5H4z" />
+    <path d="M7.5 10h9M7.5 13.5h9M7.5 17h5" />
+  </Glyph>
+);
+
+/** A dimension line between two ticks: one known length. */
+export const CalibrateIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <path d="M3.5 7v10M20.5 7v10" />
+    <path d="M3.5 12h17" />
+    <path d="M6.5 9.5 3.5 12l3 2.5M17.5 9.5l3 2.5-3 2.5" />
+  </Glyph>
+);

@@ -5,7 +5,8 @@ import { formatMetres, summarizeScene } from "@/scene/model/summary";
 import { CIRCULATION } from "./design/layout";
 import { formatMeasurement, formatSeries, measureScene, type RoomMeasurements } from "./measure";
 import { useWorkspaceSource } from "./sourceContext";
-import { useWorkspace } from "./state/store";
+import { useRunExplanation } from "./panels/EvidenceRows";
+import { useStore, useWorkspace } from "./state/store";
 import { useSettled } from "./useSettled";
 import styles from "./SceneTitleBlock.module.css";
 
@@ -58,6 +59,9 @@ export function SceneTitleBlock() {
   const measured = source ? measureScene(settled.value, source.evidence) : null;
   const caveat = measured && roomCaveat(measured.room);
   const floor = measured?.floor;
+  const explanation = useRunExplanation(source);
+  const store = useStore();
+  const tool = useWorkspace((s) => s.tool);
 
   return (
     <dl ref={ref} className={styles.block}>
@@ -94,6 +98,25 @@ export function SceneTitleBlock() {
           )}
         </dd>
       </div>
+      {explanation && explanation.status !== "succeeded" && (
+        <div className={styles.row} data-run-status={explanation.status}>
+          <dt>Status</dt>
+          <dd>
+            {explanation.headline}
+            {explanation.reasons.slice(0, 1).map((r) => (
+              <span key={r.code} className={styles.qualifier}>
+                {r.text}
+              </span>
+            ))}
+            {explanation.calibrated && <span className={styles.qualifier}>{explanation.calibrated}</span>}
+            {explanation.action && tool !== "calibrate" && (
+              <button type="button" className={styles.action} onClick={() => store.setTool("calibrate")}>
+                {explanation.action.label}
+              </button>
+            )}
+          </dd>
+        </div>
+      )}
       {floor && (
         <div className={styles.row} data-settling={settled.settling || undefined}>
           <dt>Floor</dt>

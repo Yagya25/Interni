@@ -11,17 +11,20 @@ interface PanelProps {
   summary?: string;
   /** Which edge of the room it sits against. Tools left, context right. */
   side?: "left" | "right";
+  /** Wider than a tool panel, for a panel whose content is a picture to work on. */
+  wide?: boolean;
   onClose: () => void;
   children: ReactNode;
 }
 
 /** The chrome every panel shares: a ruled head, and a scrolling body. */
-export function Panel({ id, title, summary, side = "left", onClose, children }: PanelProps) {
+export function Panel({ id, title, summary, side = "left", wide, onClose, children }: PanelProps) {
   return (
     <aside
       className={styles.panel}
       data-region={side === "left" ? "panel" : "inspector"}
       data-side={side}
+      data-wide={wide || undefined}
       id={id}
       aria-label={title}
     >

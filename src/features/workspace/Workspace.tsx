@@ -11,14 +11,16 @@ import { CommandBar } from "./command/CommandBar";
 import { DesignDirections } from "./design/DesignDirections";
 import { Inspector } from "./Inspector";
 import { AiPanel } from "./panels/AiPanel";
+import { CalibrationPanel } from "./panels/CalibrationPanel";
 import { CameraPanel } from "./panels/CameraPanel";
+import { EvidencePanel } from "./panels/EvidencePanel";
 import { LightingPanel } from "./panels/LightingPanel";
 import { MaterialsPanel } from "./panels/MaterialsPanel";
 import { ObjectsPanel } from "./panels/ObjectsPanel";
 import { StageProvider, type StageHandle } from "./scene/StageContext";
 import { useStage } from "./scene/useStage";
 import { SourceProvider, type WorkspaceSource } from "./sourceContext";
-import { useSelectedObject, useStore, useWorkspace, WorkspaceProvider, WorkspaceStore } from "./state/store";
+import { useSelectedObject, useStore, useWorkspace, WorkspaceProvider, WorkspaceStore, type ToolId } from "./state/store";
 import { ToolRail } from "./ToolRail";
 import { TopBar } from "./TopBar";
 import { useShortcuts } from "./useShortcuts";
@@ -35,6 +37,8 @@ interface WorkspaceProps {
   interpreter?: CommandInterpreter;
   /** The photograph a reconstructed room came from. None for the demonstration room. */
   source?: WorkspaceSource;
+  /** A panel to open with, when the room is compiled again with a panel in use (calibration). */
+  initialTool?: ToolId;
 }
 
 /**
@@ -45,8 +49,12 @@ interface WorkspaceProps {
  * it, and every change — dragged, typed, or one day spoken — takes the
  * same route through a scene operation.
  */
-export function Workspace({ scene, name, palette, interpreter, source }: WorkspaceProps) {
-  const [store] = useState(() => new WorkspaceStore(scene, name, interpreter ?? notConnected, palette));
+export function Workspace({ scene, name, palette, interpreter, source, initialTool }: WorkspaceProps) {
+  const [store] = useState(() => {
+    const created = new WorkspaceStore(scene, name, interpreter ?? notConnected, palette);
+    if (initialTool) created.setTool(initialTool);
+    return created;
+  });
   // The design agent is bound only when the server has one configured; otherwise
   // every request is routed exactly as before Phase 6.
   useEffect(() => {
@@ -101,6 +109,8 @@ function Shell() {
         {tool === "materials" && <MaterialsPanel />}
         {tool === "lighting" && <LightingPanel />}
         {tool === "camera" && <CameraPanel />}
+        {tool === "evidence" && <EvidencePanel />}
+        {tool === "calibrate" && <CalibrationPanel />}
 
         {/* The room is the page's content, and where the skip link lands. */}
         {/* Marked while design directions are open, so the title block can take its place beneath them. */}

@@ -51,6 +51,11 @@ export async function loadRun(runId: string): Promise<RunState> {
   return { status: "compiled", intermediate: parsed.intermediate, calibration, calibrationProblem, result };
 }
 
+/** The same run, compiled again with a new calibration: nothing fetched, nothing else changed. */
+export function recompile(state: Extract<RunState, { status: "compiled" }>, calibration: readonly CalibrationReference[]): Extract<RunState, { status: "compiled" }> {
+  return { ...state, calibration, calibrationProblem: null, result: compileRoomShell(state.intermediate, { calibration }) };
+}
+
 /**
  * A run's calibration, if it has one. Three different answers, kept apart:
  * none measured (204, the usual case — the room's scale stays estimated,

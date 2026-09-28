@@ -1,17 +1,17 @@
-# Current state, after Phase 7
+# Current state, after Phase 8
 
 What is actually implemented, as of 29 September 2026. Nothing here is planned
 work: every claim is read from the code in this repository and from the
 reconstruction worker in WSL. The design document for where this is going is
 `docs/reconstruction-architecture.md`; this file is the inventory.
 
-Repository: branch `landing-workspace-refinement`, HEAD `c7b3cf5`. Committed:
+Repository: branch `landing-workspace-refinement`. Committed:
 the reconstruction compiler and the AI command layer in `20eff6c`, the design
 proposal engine (Phase 4A) in `59a4bcc`, this file's Phase 4A version in
 `af38165`, spatial layout and measurement (Phases 4B and 5) in `93a9a93`, and
-the real AI design agent (Phase 6) in `c7b3cf5`. **Phase 7 (upload →
-reconstruction orchestration, §23) is complete and verified, including one
-real GPU run, but not committed** (§22).
+the real AI design agent (Phase 6) in `c7b3cf5`, upload → reconstruction
+orchestration (Phase 7, §23) in `032d7ee`, and reconstruction trust and
+calibration (Phase 8, §24) in the commit that adds this section (§22).
 
 Stack: Next.js 16.3.5 (App Router), React 19.2.8, three 0.186, TypeScript 5,
 vitest 4.1.11. The reconstruction worker is a separate Python 3.12 package in
@@ -28,6 +28,7 @@ photograph → worker → intermediate → SceneCompiler → Scene (+ SceneEvide
                           Scene + evidence → measurements (read-only, derived)   (5: measure this)
                           words → design agent (server, model) → validated reading → the same paths  (6)
 upload → job → the same worker → the same SceneCompiler → workspace   (7: orchestration only)
+evidence + diagnostics → Evidence panel / title block; marks on the photo → calibration.json → recompile   (8)
 ```
 
 ---
@@ -1724,8 +1725,7 @@ docs/reconstruction-architecture.md  the design document (committed)
 
 ## 22. Git and implementation status
 
-Branch `landing-workspace-refinement`, HEAD `c7b3cf5` (feat: add real AI design
-agent). Nothing has been pushed.
+Branch `landing-workspace-refinement`. Nothing has been pushed.
 
 | Commit | Contents |
 |---|---|
@@ -1735,6 +1735,8 @@ agent). Nothing has been pushed.
 | `af38165` | docs: this file after Phase 4A |
 | `93a9a93` | spatial layout and measurement (Phases 4B and 5; the file list below) |
 | `c7b3cf5` | the real AI design agent (Phase 6) |
+| `032d7ee` | upload → reconstruction pipeline (Phase 7, §23) |
+| (this commit) | reconstruction trust and calibration (Phase 8, §24) |
 
 **Phase 6** (`c7b3cf5`) is a server-side design agent behind
 `/api/agent/design` (`src/features/workspace/agent/`). It is off unless
@@ -1744,9 +1746,9 @@ default). Its structured replies are validated on the server and routed into
 the existing Phase 3E/4A/4B paths; no key reaches the browser. The workspace
 labels the bound agent `Claude (<model>)` whichever provider serves it.
 
-**Phase 7** (§23) is implemented and verified but **uncommitted**: working-tree
-changes on top of `c7b3cf5`. It changes no worker, model, compiler or
-Phase 3E–6 file.
+**Phase 7** (§23) is committed at `032d7ee`. It changes no worker, model,
+compiler or Phase 3E–6 file. **Phase 8** (§24) is committed on top of it and
+changes no worker, model, compiler, or Phase 3E–7 logic.
 
 What `93a9a93` contained, as recorded before it was committed:
 
@@ -1894,3 +1896,194 @@ repository. The Phase 6 check A1 used to expect the fixed label
 `Claude (claude-opus-5)`. It now compares the bound agent with the model
 `GET /api/agent/design` reports as configured, so it holds for either
 provider.
+
+## 24. Reconstruction trust and calibration (Phase 8)
+
+Phase 8 lets a person see how the reconstructed room is known, and correct
+its scale with one length they know. It is built on what already existed:
+`SceneEvidence`, `CompileReport`, the worker's intermediate and plane label
+map, and the compiler's calibration contract (`calibration.json` schema 1,
+`estimateOf`, `solveScale`, `compileRoomShell(…, { calibration })`; §14.9).
+
+**Unchanged:** the worker, the models, the compiler and the Scene contract.
+No second Scene representation was added.
+
+### 24.1 Evidence inspector (8A)
+
+- `reconstruction/trust/evidence.ts` is a pure, read-only view model.
+  `roomEvidence` returns six groups:
+  - **Room:** width, depth and height, and each side seen or not.
+  - **Camera:** the field of view with the worker's note on which model
+    was used, camera height, roll, focal length, and the principal point
+    (a `default`).
+  - **Planes:** all 18 fitted planes, with role, what each became, visible
+    area and fit RMS.
+  - **Depth and scale:** the depth source, the scale row, and each
+    calibration reference with its residual.
+  - **Materials:** counts by how each class was decided, and what was not
+    estimated.
+  - **Lighting:** colour, direction, daylight and lights.
+- `objectEvidence` gives each piece's detection (detector phrase and raw
+  score), mask (instance and raw mask score), depth (point count and median
+  distance, before calibration), placement, turn, support, size (the weakest
+  basis of the three axes, and whether each is typical), scale, and what it
+  is drawn as (a parametric category and form, with the form's basis). It
+  adds the entity's notes and alternative readings with their raw scores.
+  A piece with no evidence entry, one added or replaced since, gets nothing.
+- Every row keeps the compiler's basis (measured, calibrated, estimated,
+  inferred or default) and readable sources (for example "MoGe-2 depth and
+  geometry" or "fitted plane plane-1").
+- **No confidence is computed.** Detector and mask scores are labelled raw,
+  not probabilities. A test asserts that none of the output claims a
+  confidence.
+- **In the workspace:**
+  - A new **Evidence** tool in the rail, shown for reconstructed rooms
+    only, opens `panels/EvidencePanel.tsx`: the run's status, the six
+    groups, and the pieces. Choosing a piece selects it.
+  - The Inspector gains an **Evidence** section for the selected piece
+    (`InspectorEvidence.tsx`).
+  - The demonstration room's rail is unchanged.
+
+### 24.2 Degraded-state diagnostics (8C)
+
+`reconstruction/trust/diagnostics.ts` explains the worker's own
+`diagnostics` in words, with the numbers it recorded.
+
+- **Degraded run with a camera warning:** "Reconstruction completed with
+  estimated camera calibration." The reason reads "GeoCalib's field of view
+  (54.0°) and MoGe-2's (59.1°) disagree by 5.2°, more than the worker
+  accepts, so the camera calibration is an estimate." The next action is
+  **Calibrate a known distance**.
+- **Once calibrated:** "Scale is calibrated to your measurement. Calibration
+  fixes the room's size, not its proportions: those still rest on the
+  estimated field of view." The action is no longer offered.
+- **Other warnings** use the worker's message. A failed run reads "The
+  reconstruction failed." A clean run shows no Status row.
+- **Where it appears:**
+  - A **Status** row in the title block, with the action button.
+  - The top of the Evidence panel, and the Calibrate panel when the run is
+    degraded.
+- **Designs-open layout:** while design directions are open, the Status
+  row shows only its headline, following §14.9's shared-column rule, so it
+  never covers the design rail's controls.
+
+### 24.3 Calibration workflow (8B)
+
+1. **Open the panel.** A **Calibrate** tool in the rail, or the title
+   block's action, opens `panels/CalibrationPanel.tsx`, a wide panel.
+2. **Choose what you know.**
+   - **A distance in the photo:** click two points on the photograph, over
+     the surfaces the reconstruction fitted (tinted). Each click is
+     resolved to its plane through the worker's `planes.png` label map
+     (served as a run file). The map is decoded with no colour conversion,
+     and every value is checked against the run's plane labels, so an
+     inexact decode is refused. Both points must be on one plane.
+     `estimateOf` gives the uncalibrated length ("On the floor · the
+     reconstruction reads 0.577 m (uncalibrated)").
+   - **The room's height:** only when the ceiling was seen.
+3. **Enter the real length,** between 0.05 and 50 m (the same bounds as
+   `solveScale`), with an optional label.
+4. **Check the preview.** It uses `solveScale` itself, for example "Every
+   length × 1.101 (+10.1%)". It warns when references disagree by more than
+   5%, the compiler's own test.
+5. **Apply.** The references are saved (§24.4). The room is compiled again
+   from the same intermediate with them (`recompile` in `loadRun.ts`), and
+   the workspace reopens with the Calibrate panel still in view.
+6. **Remove.** Each reference can be removed, or the whole calibration.
+
+**What calibration changes:**
+- **One factor on the shared frame.** Every length read from the photograph
+  scales, and nothing is scaled piece by piece. Scene and object ids are
+  unchanged.
+- **Evidence:** `estimated` sizes become `calibrated`. `inferred` and
+  `default` values keep their basis (a category's typical size is already
+  a real-world one, and so is the room's default depth).
+- **Honest fallback:** a calibrated size below what such a piece can be
+  falls back to its typical size, marked `inferred` with a note. On the
+  real run, the media console's depth goes from 0.32 to 0.42 m this way.
+- **Rules in real metres:** placement rules act in real metres, so pieces
+  land within 10 cm of their purely scaled positions.
+- **Measurements follow:** they are shown to 1 cm for calibrated values, and
+  σ stays null. Circulation (a 60 cm path in real metres) and the 4B
+  layouts change accordingly.
+- **Not an edit.** Calibration does not enter undo/redo: a recompiled room
+  opens with an empty history. The panel warns "Your N edits will be
+  discarded" before applying. Removing every reference gives back the
+  estimated room, byte-identical.
+
+### 24.4 Persistence and versioning
+
+- `PUT /api/reconstructions/local/<runId>/calibration`
+  (`reconstruction/calibrationFile.ts`) is development-only like the rest
+  of the local API. It writes the run's `calibration.json` in schema 1 via
+  `.part` and rename. Only the schema's fields are written (kind, planeId,
+  a, b, metres and label).
+- **Checked before writing:** every reference is validated against the
+  run's own intermediate with `solveScale`. A reference the compiler would
+  reject returns 422 and nothing is written. Bad input returns 400, and an
+  unknown run returns 404.
+- **Versioning follows `python -m reconstruction.calibrate`:** a
+  calibration is never replaced silently. The file it replaces is kept as
+  the next free `calibration.<n>.json`. An empty list removes
+  `calibration.json`, and the old one is still kept. Files written by the
+  CLI and by the workspace are interchangeable.
+- The loader's existing `readCalibration` reads it back on every open, so a
+  calibration persists across reloads.
+
+### 24.5 Verification
+
+On the final working tree, with `next start` on the production build and
+headless Chrome with real mouse and keyboard input:
+
+| Check | Result |
+|---|---|
+| Vitest | 317/317 (18 files); the 24 in `reconstruction/trust/trust.test.ts` are new |
+| Typecheck, lint, production build | clean, no warnings |
+| Main browser regression | 32/32 |
+| Phase 4A | 7/7 |
+| Phase 6 agent | 14/14 |
+| Phase 7 upload pipeline (`scripts/browser/upload-pipeline.mjs`) | 10/10 |
+| Phase 8 (`scripts/browser/calibration.mjs`) | 15/15 |
+
+**`calibration.mjs`** runs on a temporary copy of the real run
+`20260922T065240Z-2d25a689`. It checks:
+- the degraded status, reason and action in the title block;
+- the Evidence panel's groups and bases, with no confidence;
+- the sofa's evidence in the Inspector;
+- two floor marks reading 0.577 m, and 0.01 m refused;
+- the preview ×1.101, then apply: `calibration.json` written in schema 1,
+  the room 3.724 → 4.1 m wide, and the title block "calibrated to your
+  measurement" with the proportions caveat;
+- the free floor ≈ 18 → ≈ 22 m², and the Evidence scale row calibrated;
+- the calibration persisting across a reload;
+- removing it: the estimated room back exactly, and `calibration.1.json`
+  kept;
+- marks on two surfaces refused;
+- the source run folder byte-for-byte unchanged, and no console errors or
+  failed requests.
+
+No real reconstruction run was modified: the real runs folder has no
+calibration files.
+
+Found during verification and fixed before commit: the taller title block
+(the new Status row) covered the design rail's "Exit preview" while
+directions were open. The designs-open rule above fixed it, and the
+32-check layout checks pass at all six sizes.
+
+### 24.6 Known limitations
+
+- **Edits are discarded.** Calibrating compiles the room again, so unsaved
+  edits are lost. The panel warns before applying, and nothing is merged.
+- **Scale only.** One factor fixes size, not proportions. With a wrong field
+  of view, several references disagree, and that is reported (over 5%),
+  not corrected.
+- **Fitted surfaces only.** Points can be marked only on a surface the
+  worker fitted, with no free 3D point picking. `room-height` needs a
+  visible ceiling.
+- **Pointer only.** Marking needs a mouse or touch. Room height is the
+  keyboard-only route. On a phone the photograph is small and marking is
+  imprecise.
+- **The field of view** is not re-solved. Phase 8 adds no models and runs no
+  GPU.
+- **Harness location.** The Phase 3E–6 browser harnesses still live outside
+  the repository. Phases 7 and 8 have theirs in `scripts/browser/`.

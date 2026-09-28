@@ -1,7 +1,8 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { AiIcon, CameraIcon, LightingIcon, MaterialsIcon, ObjectsIcon } from "./icons";
+import { AiIcon, CalibrateIcon, CameraIcon, EvidenceIcon, LightingIcon, MaterialsIcon, ObjectsIcon } from "./icons";
+import { useWorkspaceSource } from "./sourceContext";
 import { useStore, useWorkspace, type ToolId } from "./state/store";
 import styles from "./ToolRail.module.css";
 
@@ -12,7 +13,8 @@ interface Tool {
 }
 
 /**
- * Five instruments, and nothing that does not work yet.
+ * Five instruments, and nothing that does not work yet — seven for a
+ * reconstructed room, which can also show its evidence and be calibrated.
  *
  * Measuring and floor plans belong in the rail eventually; they are not
  * here because they are not built, and a button that does nothing is worse
@@ -26,14 +28,22 @@ const TOOLS: readonly Tool[] = [
   { id: "camera", label: "Camera", Icon: CameraIcon },
 ];
 
+/** A reconstructed room also says how it is known, and can be calibrated. */
+const RECONSTRUCTION_TOOLS: readonly Tool[] = [
+  { id: "evidence", label: "Evidence", Icon: EvidenceIcon },
+  { id: "calibrate", label: "Calibrate", Icon: CalibrateIcon },
+];
+
 export function ToolRail() {
   const store = useStore();
   const tool = useWorkspace((s) => s.tool);
+  const reconstructed = !!useWorkspaceSource()?.evidence;
+  const tools = reconstructed ? [...TOOLS, ...RECONSTRUCTION_TOOLS] : TOOLS;
 
   return (
     <nav className={styles.rail} data-region="rail" aria-label="Tools">
       <ul className={styles.list}>
-        {TOOLS.map(({ id, label, Icon }) => (
+        {tools.map(({ id, label, Icon }) => (
           <li key={id}>
             <button
               type="button"

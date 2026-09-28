@@ -82,9 +82,33 @@
   max-height: 4.5rem;
 }
 
+/* The run's status keeps its headline; its reason and action are in the Evidence and Calibrate panels. */
+:global([data-designs]) .row[data-run-status] .qualifier,
+:global([data-designs]) .row[data-run-status] .action {
+  display: none;
+}
+
 /* On a phone the room needs every pixel; the readings live in the panels. */
 @media (max-width: 60rem) {
   .block {
     display: none;
   }
+}
+
+/* The one action the block offers: the next step for a run that needs one. */
+.action {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--ink);
+  font: inherit;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  pointer-events: auto;
+}
+
+.action:hover {
+  background: var(--ink);
+  color: var(--paper);
 }

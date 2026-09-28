@@ -17,6 +17,8 @@ export const RUN_FILES = {
   "source.jpg": "image/jpeg",
   "depth-preview.png": "image/png",
   "planes-preview.png": "image/png",
+  /** The worker's plane label map (one byte per pixel, the plane's `label`), read by the calibration tool. */
+  "planes.png": "image/png",
 } as const;
 
 export type RunFile = keyof typeof RUN_FILES;

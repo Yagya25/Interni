@@ -9,6 +9,10 @@
   background: var(--paper-raised);
 }
 
+.panel[data-wide] {
+  width: min(32rem, 45vw);
+}
+
 .panel[data-side="right"] {
   width: 20rem;
   border-right: 0;
