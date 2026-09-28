@@ -14,6 +14,13 @@ import {
   type DesignSession,
 } from "../design";
 import { readDesignRequest, type DesignRequest } from "../design/read";
+import { fromIntent } from "../design/session";
+import type { SceneEvidence } from "@/scene/compile/evidence";
+import { roomBrief } from "../agent/brief";
+import { AGENT_MESSAGES } from "../agent/messages";
+import { readThresholdQuestion, resolveQuestion } from "../agent/question";
+import { preRoute } from "../agent/route";
+import type { DesignAgent, QuestionWire } from "../agent/types";
 import type { Intent } from "./edits";
 import {
   canRedo,
@@ -64,7 +71,13 @@ export interface WorkspaceState {
 }
 
 /** How the interpreter answered, when it didn't answer with changes. */
-export type NoteKind = "ambiguous" | "needs-subject" | "needs-destination" | "unsupported" | "unavailable" | "no-change" | "not-understood";
+export type NoteKind = "ambiguous" | "needs-subject" | "needs-destination" | "unsupported" | "unavailable" | "no-change" | "not-understood" | "answer" | "agent";
+
+/** The design agent, when the server has one configured, with the evidence its brief and answers read. */
+export interface AgentBinding {
+  agent: DesignAgent;
+  evidence: SceneEvidence | null;
+}
 
 export interface CommandNote {
   pending: boolean;
@@ -111,6 +124,20 @@ export class WorkspaceStore {
       limitation: null,
       receipt: null,
     };
+  }
+
+  /** The design agent, or null: without one, requests are routed exactly as before Phase 6. */
+  private agent: AgentBinding | null = null;
+  /** The last question the agent read, so choosing among pieces does not ask the model again. */
+  private question: { text: string; wire: QuestionWire } | null = null;
+
+  setAgent(binding: AgentBinding | null) {
+    this.agent = binding;
+    this.question = null;
+  }
+
+  get agentName(): string | null {
+    return this.agent?.agent.name ?? null;
   }
 
   getState = (): WorkspaceState => this.state;
@@ -317,12 +344,18 @@ export class WorkspaceStore {
    * consumed, so the command bar knows whether to clear.
    */
   async run(text: string, signal: AbortSignal): Promise<boolean> {
+    if (this.agent) return this.runWithAgent(this.agent, text, signal);
     // A design request and an edit command are different things and are kept
     // apart: "make the room warmer" is one edit to this room, "give me three
     // modern designs" is a set of directions for it. Only the second reaches
     // the design engine, and only when the words plainly ask for one.
     const request = readDesignRequest(text);
     if (request) return this.runDesign(text, request, signal);
+    return this.runCommand(text, signal);
+  }
+
+  /** A Phase 3E command, through the interpreter. `notUnderstood` takes words it could not read at all. */
+  private async runCommand(text: string, signal: AbortSignal, notUnderstood?: () => Promise<boolean>): Promise<boolean> {
     if (!this.interpreter.available) {
       this.note(this.interpreter.unavailableReason ?? "No interpreter is connected.");
       return false;
@@ -355,6 +388,7 @@ export class WorkspaceStore {
         this.note(result.message, "select", kind, text, clarification.reason === "ambiguous" ? clarification.options : []);
         return false;
       }
+      if (notUnderstood && result.outcome === "unsupported" && !result.intent) return notUnderstood();
       const kind: NoteKind = result.outcome === "unavailable" ? (result.already ? "no-change" : "unavailable") : result.intent ? "unsupported" : "not-understood";
       this.note(result.message, "plain", kind, text);
       return false;
@@ -407,6 +441,96 @@ export class WorkspaceStore {
       this.note(error instanceof Error ? error.message : DESIGN_MESSAGES.noProposals, "plain", "unsupported", text);
       return false;
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // The design agent (Phase 6). Only reached when one is bound.
+
+  /**
+   * Agent mode: acts on the directions on screen and Phase 3E commands stay
+   * on the deterministic rules; questions, design briefs and words the rules
+   * cannot read go to the agent. Its reply is already validated; what it
+   * leads to is built by the same engine as everything else, and a failure
+   * never touches the document.
+   */
+  private async runWithAgent(binding: AgentBinding, text: string, signal: AbortSignal): Promise<boolean> {
+    const route = preRoute(text);
+    if (route.to === "session") return this.runDesign(text, route.request, signal);
+    if (route.to === "command") return this.runCommand(text, signal, () => this.askAgent(binding, text, false, true, signal));
+    return this.askAgent(binding, text, route.rulesBrief, false, signal);
+  }
+
+  private async askAgent(binding: AgentBinding, text: string, rulesBrief: boolean, afterCommand: boolean, signal: AbortSignal): Promise<boolean> {
+    // Choosing among pieces re-runs the same question: answer it again from what was read.
+    if (this.question?.text === text) return this.answerQuestion(binding, text, this.question.wire);
+    this.set({ command: { ...IDLE, pending: true, text }, limitation: null, receipt: null });
+    const brief = roomBrief(this.state.doc.scene, binding.evidence, this.state.design?.proposals.map((p) => p.title) ?? []);
+    const result = await binding.agent.read({ text, brief }, signal);
+    if (signal.aborted) return false;
+    if (!result.ok) {
+      if (result.failure === "cancelled") {
+        this.set({ command: IDLE });
+        return false;
+      }
+      const why = AGENT_MESSAGES.failure[result.failure];
+      // A stated threshold is a measurement, never a design count ("80" is not a number of designs).
+      const threshold = readThresholdQuestion(text);
+      if (threshold) return this.answerQuestion(binding, text, threshold, `${why} ${AGENT_MESSAGES.readByMeasureRules} `);
+      if (rulesBrief) {
+        const consumed = await this.runDesign(text, { kind: "brief" }, signal);
+        if (signal.aborted) return consumed;
+        if (consumed) this.note(`${why} ${AGENT_MESSAGES.readByRules}`, "plain", "agent", text);
+        return consumed;
+      }
+      this.note(`${why} ${AGENT_MESSAGES.notAnswered}`, "plain", "agent", text);
+      return false;
+    }
+    const reply = result.reply;
+    switch (reply.route) {
+      case "design": {
+        const outcome = fromIntent(text, reply.design, this.state.doc.scene);
+        if (outcome.outcome === "designs") {
+          this.proposeDesigns(outcome.session);
+          return true;
+        }
+        this.note(outcome.message, "plain", outcome.outcome === "none" ? "no-change" : "not-understood", text);
+        return false;
+      }
+      case "question":
+        this.question = { text, wire: reply.question };
+        return this.answerQuestion(binding, text, reply.question);
+      case "command":
+        // The person's own words go to the Phase 3E rules; the model never rewrites them.
+        if (afterCommand) {
+          this.note(AGENT_MESSAGES.commandNotRead, "plain", "not-understood", text);
+          return false;
+        }
+        return this.runCommand(text, signal, async () => {
+          this.note(AGENT_MESSAGES.commandNotRead, "plain", "not-understood", text);
+          return false;
+        });
+      case "clarify":
+        this.note(AGENT_MESSAGES.clarify[reply.clarify], "plain", "agent", text);
+        return false;
+      case "out_of_scope":
+        this.note(AGENT_MESSAGES.outOfScope[reply.outOfScope], "plain", "unsupported", text);
+        return false;
+    }
+  }
+
+  /** A question, answered by Phase 5 on the room as it is shown. Reads, never writes. */
+  private answerQuestion(binding: AgentBinding, text: string, wire: QuestionWire, lead = ""): boolean {
+    const result = resolveQuestion(wire, this.state.scene, binding.evidence, this.state.selection);
+    if (result.kind === "answer") {
+      this.note(`${lead}${result.answer.text}`, "plain", "answer", text);
+      return false;
+    }
+    if (result.kind === "clarify") {
+      this.note(result.message, "select", "ambiguous", text, result.options);
+      return false;
+    }
+    this.note(result.message, "plain", "unsupported", text);
+    return false;
   }
 
   private note(note: string, tone: "plain" | "select" = "plain", kind: NoteKind | null = null, text: string | null = null, options: readonly ClarifyOption[] = []) {

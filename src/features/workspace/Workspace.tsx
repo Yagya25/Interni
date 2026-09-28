@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { anchors } from "@/config/site";
 import { useReducedMotion } from "@/lib/useReducedMotion";
 import type { Material, Scene } from "@/scene/model/types";
+import { agentStatus, httpAgent } from "./agent/client";
 import { notConnected, type CommandInterpreter } from "./ai/interpreter";
 import { ChangeProposal } from "./command/ChangeProposal";
 import { CommandBar } from "./command/CommandBar";
@@ -46,6 +47,18 @@ interface WorkspaceProps {
  */
 export function Workspace({ scene, name, palette, interpreter, source }: WorkspaceProps) {
   const [store] = useState(() => new WorkspaceStore(scene, name, interpreter ?? notConnected, palette));
+  // The design agent is bound only when the server has one configured; otherwise
+  // every request is routed exactly as before Phase 6.
+  useEffect(() => {
+    let live = true;
+    void agentStatus().then(({ available, model }) => {
+      if (live && available && model) store.setAgent({ agent: httpAgent(model), evidence: source?.evidence ?? null });
+    });
+    return () => {
+      live = false;
+      store.setAgent(null);
+    };
+  }, [store, source]);
   return (
     <WorkspaceProvider value={store}>
       <SourceProvider value={source ?? null}>

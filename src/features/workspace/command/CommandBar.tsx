@@ -14,6 +14,8 @@ const KIND_LABEL: Record<NoteKind, string> = {
   unavailable: "Not available yet",
   "no-change": "No change",
   "not-understood": "Not understood",
+  answer: "Answer",
+  agent: "Design agent",
 };
 
 /**
