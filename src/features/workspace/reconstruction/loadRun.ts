@@ -101,6 +101,16 @@ export const RUN_PROBLEMS: Record<string, { title: string; detail: string }> = {
   "not-decodable": { title: "That image couldn't be read.", detail: "The file may be damaged." },
   "gpu-oom": { title: "The reconstruction ran out of graphics memory.", detail: "The worker's log records how much it needed." },
   "model-integrity": { title: "A model file didn't match its pinned hash.", detail: "The worker refused to run it. The worker's log names the file." },
+  // Phase 7: sending a photograph to the worker.
+  "worker-unavailable": { title: "The reconstruction worker couldn't be started.", detail: "It runs in WSL on this machine, on the graphics card. The job's log on this machine records why it didn't start." },
+  "worker-crashed": { title: "The reconstruction worker stopped unexpectedly.", detail: "It didn't finish writing a result. The job's log on this machine records what happened." },
+  "worker-timeout": { title: "The reconstruction took too long and was stopped.", detail: "Try again; if it keeps happening, the job's log on this machine shows where it stalled." },
+  "job-error": { title: "The reconstruction job couldn't be tracked.", detail: "The server couldn't record its progress in the runs folder. Try again." },
+  interrupted: { title: "The reconstruction was interrupted.", detail: "The server stopped while it was running. Try again." },
+  busy: { title: "Several reconstructions are already waiting.", detail: "Try again once one of them has finished." },
+  "upload-invalid": { title: "The photograph didn't arrive.", detail: "Try sending it again." },
+  "upload-failed": { title: "The photograph couldn't be kept for reconstruction.", detail: "The server couldn't write it to the runs folder." },
+  unreachable: { title: "The server couldn't be reached.", detail: "Check that the dev server is still running." },
 };
 
 export const problemCopy = (code: string) =>

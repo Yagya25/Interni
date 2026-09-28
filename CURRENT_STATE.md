@@ -1,16 +1,17 @@
-# Current state, after Phase 5
+# Current state, after Phase 7
 
-What is actually implemented, as of 26 September 2026. Nothing here is planned
+What is actually implemented, as of 29 September 2026. Nothing here is planned
 work: every claim is read from the code in this repository and from the
 reconstruction worker in WSL. The design document for where this is going is
 `docs/reconstruction-architecture.md`; this file is the inventory.
 
-Repository: branch `landing-workspace-refinement`, HEAD `af38165`. Committed:
+Repository: branch `landing-workspace-refinement`, HEAD `c7b3cf5`. Committed:
 the reconstruction compiler and the AI command layer in `20eff6c`, the design
-proposal engine (Phase 4A) in `59a4bcc`, and this file's Phase 4A version in
-`af38165`. **Phase 4B (spatial layout) and Phase 5 (measurement) are complete
-and verified but not committed**: they are working-tree changes on top of
-`af38165` (§22).
+proposal engine (Phase 4A) in `59a4bcc`, this file's Phase 4A version in
+`af38165`, spatial layout and measurement (Phases 4B and 5) in `93a9a93`, and
+the real AI design agent (Phase 6) in `c7b3cf5`. **Phase 7 (upload →
+reconstruction orchestration, §23) is complete and verified, including one
+real GPU run, but not committed** (§22).
 
 Stack: Next.js 16.3.5 (App Router), React 19.2.8, three 0.186, TypeScript 5,
 vitest 4.1.11. The reconstruction worker is a separate Python 3.12 package in
@@ -25,6 +26,8 @@ photograph → worker → intermediate → SceneCompiler → Scene (+ SceneEvide
                           words → intent → command → operations → history   (3E: do this)
                           words → design intent → proposals → operations → history  (4A: finishes; 4B: layouts)
                           Scene + evidence → measurements (read-only, derived)   (5: measure this)
+                          words → design agent (server, model) → validated reading → the same paths  (6)
+upload → job → the same worker → the same SceneCompiler → workspace   (7: orchestration only)
 ```
 
 ---
@@ -1721,11 +1724,31 @@ docs/reconstruction-architecture.md  the design document (committed)
 
 ## 22. Git and implementation status
 
-Branch `landing-workspace-refinement`, HEAD `af38165` (docs: update current
-implementation state after phase 4A). Phases 3, 3E and 4A are committed.
-**Phases 4B and 5 are implemented and verified (§17) but uncommitted.**
-Nothing is staged, nothing is committed on top of `af38165`, and nothing has
-been pushed.
+Branch `landing-workspace-refinement`, HEAD `c7b3cf5` (feat: add real AI design
+agent). Nothing has been pushed.
+
+| Commit | Contents |
+|---|---|
+| `1d96d99` | docs: this file after Phase 3E |
+| `20eff6c` | the reconstruction compiler and the AI command layer (Phases 3–3E) |
+| `59a4bcc` | the design proposal engine (Phase 4A) |
+| `af38165` | docs: this file after Phase 4A |
+| `93a9a93` | spatial layout and measurement (Phases 4B and 5; the file list below) |
+| `c7b3cf5` | the real AI design agent (Phase 6) |
+
+**Phase 6** (`c7b3cf5`) is a server-side design agent behind
+`/api/agent/design` (`src/features/workspace/agent/`). It is off unless
+`DATUM_DESIGN_AGENT` names a provider (`anthropic` or `groq`); this machine's
+`.env.local` currently selects **Groq**, model `openai/gpt-oss-120b` (the Groq
+default). Its structured replies are validated on the server and routed into
+the existing Phase 3E/4A/4B paths; no key reaches the browser. The workspace
+labels the bound agent `Claude (<model>)` whichever provider serves it.
+
+**Phase 7** (§23) is implemented and verified but **uncommitted**: working-tree
+changes on top of `c7b3cf5`. It changes no worker, model, compiler or
+Phase 3E–6 file.
+
+What `93a9a93` contained, as recorded before it was committed:
 
 Working-tree changes, by phase:
 
@@ -1755,3 +1778,119 @@ Some working-copy files have Windows (CRLF) line endings, from script-based
 edits during Phases 4B and 5. The repository's `.gitattributes`
 (`* text=auto eol=lf`) converts them to LF on commit, so the committed content
 is unaffected and git's diffs show only the real changes.
+
+## 23. Upload to reconstruction (Phase 7)
+
+The entry page (`/workspace`) now sends a photograph to the existing
+reconstruction worker and opens the result. This is orchestration only. The
+worker (Python, unchanged) is still the source of the observations, and the
+SceneCompiler (unchanged) still makes the Scene in the browser.
+
+**Flow.**
+1. The user clicks "Reconstruct this room", which sends
+   `POST /api/reconstructions/local/jobs` (multipart, field `photo`).
+2. The server validates the upload: magic bytes (JPEG, PNG or WEBP), any
+   declared type must agree, and it must be 24 MB or less. It then creates
+   `<runs>/.jobs/<runId>/` exclusively, keeps `original.<ext>` byte for byte
+   with a `job.json`, and answers `202 {runId, status: "queued"}` at once.
+3. A queue, one per process on `globalThis`, runs one worker at a time:
+   `wsl.exe -d <distro> --cd <worker> --exec .venv/bin/python -m
+   reconstruction.worker --input <runs>/.jobs/<runId>/original.<ext> --output
+   <runs>/<runId>/reconstruction.json`.
+4. The browser polls `GET /api/reconstructions/local/jobs/<runId>` and moves
+   to `/workspace/reconstruction/<runId>` when the status is `complete` or
+   `degraded`.
+
+**Supporting details.**
+- **Run id:** `<UTC stamp>-<sha8>-<8 random hex>`.
+- **Worker console output:** kept in `.jobs/<runId>/process.log`.
+- **Statuses:** `queued → running → complete | degraded | failed`. The run's
+  `diagnostics.status` decides the outcome, and a failure's code is
+  `errors[0].code`. With no intermediate, the code is `worker-unavailable`,
+  `worker-crashed`, `worker-timeout` (after 5 minutes by default),
+  `interrupted` (after a server restart) or `job-error`.
+- **Browser responses:** codes only. No paths, logs or settings.
+- **`sourceImageId`:** the worker's intake hashes the untouched original, so
+  `sourceImageId = sha256(upload)[:16]`.
+- **CLI runs:** unaffected. `.jobs` never matches `RUN_ID`, and the status
+  route derives a status for runs that have no job.
+- **Restart:** queued jobs are requeued. A job that was running takes its
+  run's own verdict, or `interrupted` if there is none.
+- **Retention:** failed jobs are removed after 7 days, and folders from
+  uploads that never finished after 1 hour. Finished originals are kept
+  unless `DATUM_RECONSTRUCTION_RETAIN_ORIGINALS_DAYS` is set. Run folders are
+  never touched.
+- **Windows:** `job.json` is replaced through `.part` and a rename, retried
+  briefly on EPERM, EACCES and EBUSY, because Windows refuses the replace
+  while a status read holds the file.
+- **Configuration:** everything is derived from `DATUM_RECONSTRUCTION_RUNS`.
+  The optional overrides are in `.env.example`.
+
+**Files.**
+- **New:** `reconstruction/jobs/` (`api.ts`, `config.ts`, `launcher.ts`,
+  `outcome.ts`, `queue.ts`, `runId.ts`, `store.ts`, `types.ts`, `validate.ts`,
+  `jobs.test.ts`), `app/api/reconstructions/local/jobs/route.ts` and
+  `jobs/[runId]/route.ts`, `source/useReconstructionJob.ts`,
+  `tests/fixtures/reconstruction/fake-worker.mjs` and
+  `scripts/browser/upload-pipeline.mjs`.
+- **Modified:** `entry/Entry.tsx`, `reconstruction/loadRun.ts` (copy for the
+  new codes), `reconstruction/localRuns.ts` (`RUN_ID` exported) and
+  `.env.example`.
+
+**Tests.**
+- `jobs.test.ts` has 40 tests, using the fake worker as a real child process:
+  - validation, run ids and configuration;
+  - every outcome mapping;
+  - status transitions, and success, degraded and failure paths;
+  - the watchdog;
+  - one-at-a-time FIFO order and isolation for identical uploads;
+  - status reads racing the queue's writes;
+  - restart recovery, cleanup, and the endpoints, including a check for leaked
+    paths.
+- `node scripts/browser/upload-pipeline.mjs`, run after `npm run build`,
+  checks U1–U10 against `next start` with the fake worker:
+  - processing state, then navigation;
+  - byte identity and `sourceImageId`;
+  - degraded opens and failed explains;
+  - wrong-type rejected;
+  - a reload during reconstruction resumes;
+  - three concurrent uploads are isolated and run in sequence;
+  - no paths in responses.
+
+**Real GPU verification (29 September 2026, local time).** One upload
+through the UI of `/workspace`, on `next start` with this machine's
+`.env.local` and the real WSL worker. No fake worker was used, and nothing
+was copied into WSL or run by hand. The photograph was the original behind
+`20260922T065240Z-2d25a689` (`download.png`, 2,257,825 bytes, SHA-256
+`2d25a689d7f7…afdd`).
+
+- **runId:** `20260928T183733Z-2d25a689-c23d8dd7` (UTC).
+- **Status:** `degraded`, warning `fov-disagreement`, exit code 0, no errors.
+- **Time:** about 49.9 s of GPU work (peak 1,323 MB) and about 59.1 s for the
+  job as a whole, including starting WSL. The workspace opened 61.8 s after
+  the click.
+- **Status sequence:** `running` at 1.5 s, then `degraded` at 60.4 s. The
+  page then moved on its own to `/workspace/reconstruction/<runId>`.
+- **The room:** it rendered with 16 objects, 21 relationships, a glazed door,
+  26 materials and the lighting, at 3.724 × 6.418 × 2.998 m.
+- **Identity:** `sourceImageId` `2d25a689d7f77ec5`. The upload, the kept
+  `original.png` and the worker's recorded input all have the same SHA-256.
+- **Clean run:** no console errors and no failed requests. The status
+  responses carried no paths.
+- **Same result as the CLI run:** it matches `20260922T065240Z-2d25a689` in
+  status, warning, pipeline version, canonical image hash, 18 planes, and 39
+  instances and 83 appearance regions.
+
+**Degraded is expected for this photograph.** GeoCalib's own vertical field
+of view is 53.97° ± 6.54°, above the worker's 5° limit. The worker therefore
+uses MoGe-2's 59.14° and records `fov-disagreement`. This is the same
+warning as the original CLI run, and it is honest: the room's scale is shown
+as estimated, not calibrated. Degraded runs open normally, and only `failed`
+stops a run from opening.
+
+**Browser checks outside the repository.** The Phase 3E–6 checks are
+throwaway DevTools-protocol scripts in a session scratchpad, not in this
+repository. The Phase 6 check A1 used to expect the fixed label
+`Claude (claude-opus-5)`. It now compares the bound agent with the model
+`GET /api/agent/design` reports as configured, so it holds for either
+provider.

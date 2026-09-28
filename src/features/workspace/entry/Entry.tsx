@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/Button";
 import { Text } from "@/components/Text";
 import { routes } from "@/config/site";
+import { problemCopy } from "../reconstruction/loadRun";
 import { ACCEPT_ATTRIBUTE, formatBytes, PROBLEMS } from "../source/analyse";
-import { ANALYSIS_STEPS, RECONSTRUCTION_STAGES, type SourceStatus } from "../source/types";
+import { ANALYSIS_STEPS, type SourceStatus } from "../source/types";
+import { useReconstructionJob, type JobState } from "../source/useReconstructionJob";
 import { useSource } from "../source/useSource";
 import styles from "./Entry.module.css";
 
@@ -24,6 +26,8 @@ const RECONSTRUCTION_ROUTE = `${routes.workspace}/reconstruction`;
  */
 export function Entry() {
   const { state, blob, take, discard } = useSource();
+  const job = useReconstructionJob();
+  const busy = job.state.phase === "sending" || job.state.phase === "queued" || job.state.phase === "running" || job.state.phase === "opening";
   const [over, setOver] = useState(false);
   const plateRef = useRef<HTMLImageElement | null>(null);
 
@@ -69,7 +73,7 @@ export function Entry() {
         <p className={styles.status} role="status">
           <span className={styles.statusMark} aria-hidden="true" />
           Ready for reconstruction
-          <span className={styles.statusNote}>Reconstruction is not connected yet</span>
+          {job.connected === false && <span className={styles.statusNote}>Reconstruction is not connected here</span>}
         </p>
       )}
     </header>
@@ -95,7 +99,11 @@ export function Entry() {
                     {photograph.width} × {photograph.height}
                   </span>
                 )}
-                <span>Kept in this browser. It has not been uploaded anywhere.</span>
+                <span>
+                  {job.sent
+                    ? "Sent to the reconstruction worker on this machine, not to the internet."
+                    : "Kept in this browser. It has not been uploaded anywhere."}
+                </span>
               </figcaption>
             </figure>
 
@@ -155,24 +163,37 @@ export function Entry() {
               <section className={styles.block} aria-labelledby="pipeline-title">
                 <h2 id="pipeline-title" className={styles.blockTitle}>
                   Reconstruction
-                  <span className={styles.offline}>Not connected yet</span>
+                  {job.connected === false && <span className={styles.offline}>Not connected here</span>}
                 </h2>
-                <ol className={styles.pipeline}>
+                <ol className={styles.pipeline} aria-live="polite">
                   <li data-state={reading ? "now" : "done"}>Photograph received and measured</li>
-                  {RECONSTRUCTION_STAGES.map((stage) => (
-                    <li key={stage} data-state="waiting">
-                      {stage}
-                    </li>
-                  ))}
+                  <li data-state={jobStep(job.state, "sent")}>{sentLabel(job.state)}</li>
+                  <li data-state={jobStep(job.state, "worker")}>{workerLabel(job.state)}</li>
                 </ol>
-                <ButtonLink href={RECONSTRUCTION_ROUTE} aria-describedby="pipeline-note" className={styles.reconstruct}>
+                {job.connected !== false && (
+                  <Button
+                    onClick={() => blob && photograph && void job.start(blob, photograph.name)}
+                    disabled={!blob || !photograph || busy}
+                    aria-describedby="pipeline-note"
+                    className={styles.reconstruct}
+                  >
+                    {job.state.phase === "failed" ? "Try again" : busy ? "Reconstructing…" : "Reconstruct this room"}
+                  </Button>
+                )}
+                {job.state.phase === "failed" && (
+                  <div className={styles.problem} role="alert">
+                    <p className={styles.problemTitle}>{problemCopy(job.state.code).title}</p>
+                    <p className={styles.problemDetail}>{problemCopy(job.state.code).detail}</p>
+                  </div>
+                )}
+                <p id="pipeline-note" className={styles.honest}>
+                  {job.connected === false
+                    ? "Rooms are reconstructed by the reconstruction worker on this machine, which this server can't reach. This photograph stays in this browser."
+                    : "Reconstructing sends this photograph to the reconstruction worker on this machine — not to the internet. It reads depth, walls, objects, materials and light from it, then the room opens in the workspace."}
+                </p>
+                <ButtonLink href={RECONSTRUCTION_ROUTE} variant="text" arrow>
                   Open room reconstructions
                 </ButtonLink>
-                <p id="pipeline-note" className={styles.honest}>
-                  Rooms are reconstructed by the reconstruction worker on this machine, and its finished
-                  runs open from there. This photograph stays in this browser: it has not been sent to
-                  the worker, so nothing has been detected in it yet.
-                </p>
               </section>
 
               <div className={styles.actions}>
@@ -183,13 +204,22 @@ export function Entry() {
                     accept={ACCEPT_ATTRIBUTE}
                     onChange={(event) => {
                       const file = event.target.files?.[0];
-                      if (file) void take(file);
+                      if (file) {
+                        job.reset();
+                        void take(file);
+                      }
                       event.target.value = "";
                     }}
                   />
                   Replace photograph
                 </label>
-                <Button variant="text" onClick={discard}>
+                <Button
+                  variant="text"
+                  onClick={() => {
+                    job.reset();
+                    discard();
+                  }}
+                >
                   Remove
                 </Button>
               </div>
@@ -277,6 +307,28 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Where a reconstruction job has got to, for the pipeline list. The worker reports no finer progress, so none is invented. */
+function jobStep(state: JobState, row: "sent" | "worker"): "done" | "now" | "waiting" {
+  const p = state.phase;
+  if (row === "sent") return p === "sending" ? "now" : p === "idle" || p === "failed" ? "waiting" : "done";
+  return p === "running" || p === "queued" ? "now" : p === "opening" ? "done" : "waiting";
+}
+
+function sentLabel(state: JobState) {
+  if (state.phase === "sending") return "Sending to the worker on this machine";
+  return state.phase === "idle" || state.phase === "failed" ? "Sent to the worker on this machine" : "Photograph sent to the worker";
+}
+
+function workerLabel(state: JobState) {
+  if (state.phase === "queued") return state.position ? `Waiting for the worker (${state.position - 1} ahead)` : "Waiting for the worker";
+  if (state.phase === "running") {
+    const s = state.elapsedMs === null ? null : Math.round(state.elapsedMs / 1000);
+    return `Reconstructing: depth, walls, objects, materials and light${s === null ? "" : ` · ${s} s`}`;
+  }
+  if (state.phase === "opening") return "Reconstructed — opening the room";
+  return "Depth, walls, objects, materials and light";
+}
+
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 
 // Exhaustive by type: a new state cannot ship without words for it.
@@ -297,9 +349,9 @@ const LEDES: Record<SourceStatus, string> = {
   uploading: "Reading the file, here in this browser. It is not being uploaded anywhere.",
   analyzing: "Measuring the image itself. Nothing is being guessed about the room yet.",
   uploaded:
-    "Your photograph, held from an earlier visit, is the source of this space. Turning it into a room you can edit — walls, objects, materials and light — needs the reconstruction pipeline, which isn’t connected yet.",
+    "Your photograph, held from an earlier visit, is the source of this space. Reconstruct it to turn it into a room you can edit — walls, objects, materials and light.",
   ready:
-    "Your photograph is the source of this space. Turning it into a room you can edit — walls, objects, materials and light — needs the reconstruction pipeline, which isn’t connected yet.",
+    "Your photograph is the source of this space. Reconstruct it to turn it into a room you can edit — walls, objects, materials and light.",
   reconstructing: "",
   reconstructed: "",
   error: "That one didn’t work. Try another.",

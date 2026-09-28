@@ -29,7 +29,7 @@ export type RunFile = keyof typeof RUN_FILES;
  */
 export const OPTIONAL_RUN_FILES: ReadonlySet<RunFile> = new Set<RunFile>(["calibration.json"]);
 
-const RUN_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
+export const RUN_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 
 export interface RunSummary {
   runId: string;
