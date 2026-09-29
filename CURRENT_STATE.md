@@ -2039,9 +2039,9 @@ headless Chrome with real mouse and keyboard input:
 |---|---|
 | Vitest | 317/317 (18 files); the 24 in `reconstruction/trust/trust.test.ts` are new |
 | Typecheck, lint, production build | clean, no warnings |
-| Main browser regression | 32/32 |
-| Phase 4A | 7/7 |
-| Phase 6 agent | 14/14 |
+| Main browser regression (`scripts/browser/workspace-regression.mjs`) | 32/32 |
+| Phase 4A (`scripts/browser/finish-designs.mjs`) | 7/7 |
+| Phase 6 agent (`scripts/browser/design-agent.mjs`) | 14/14 |
 | Phase 7 upload pipeline (`scripts/browser/upload-pipeline.mjs`) | 10/10 |
 | Phase 8 (`scripts/browser/calibration.mjs`) | 15/15 |
 
@@ -2085,5 +2085,7 @@ directions were open. The designs-open rule above fixed it, and the
   imprecise.
 - **The field of view** is not re-solved. Phase 8 adds no models and runs no
   GPU.
-- **Harness location.** The Phase 3E–6 browser harnesses still live outside
-  the repository. Phases 7 and 8 have theirs in `scripts/browser/`.
+- **Harness location.** All browser harnesses live in `scripts/browser/`. Each
+  runs after `npm run build` with `node scripts/browser/<name>.mjs`, starts its
+  own `next start` on a temporary copy of the run, and exits non-zero on a
+  failure. `design-agent.mjs` uses canned replies and never calls a model.
