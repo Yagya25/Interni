@@ -16,4 +16,6 @@ export const MESSAGES = {
   refused: (reason: string) => `That couldn’t be made into designs: ${reason}.`,
   /** Said when no layout could be made at all. */
   noLayout: (reason: string) => `I couldn’t rearrange this room that way — ${reason}.`,
+  /** Phase 9: what was measured on each direction, once the room has changed since. */
+  checksStale: "What was measured on each direction described the room before its last change, so it is no longer shown. Ask again to measure the room as it is now.",
 } as const;

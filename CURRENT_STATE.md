@@ -1,4 +1,4 @@
-# Current state, after Phase 8
+# Current state, after Phase 9
 
 What is actually implemented, as of 29 September 2026. Nothing here is planned
 work: every claim is read from the code in this repository and from the
@@ -10,8 +10,13 @@ the reconstruction compiler and the AI command layer in `20eff6c`, the design
 proposal engine (Phase 4A) in `59a4bcc`, this file's Phase 4A version in
 `af38165`, spatial layout and measurement (Phases 4B and 5) in `93a9a93`, and
 the real AI design agent (Phase 6) in `c7b3cf5`, upload → reconstruction
-orchestration (Phase 7, §23) in `032d7ee`, and reconstruction trust and
-calibration (Phase 8, §24) in the commit that adds this section (§22).
+orchestration (Phase 7, §23) in `032d7ee`, reconstruction trust and
+calibration (Phase 8, §24) in `df7af47`, and the browser harnesses in
+`4fefcc4`. AI Design Agent 2.0 (Phase 9, §25) is in the working tree, not yet
+committed (§22).
+
+Sections written before Phases 6–9 are kept as they were, with a note where a
+later phase has changed what they say. §25 describes the agent as a whole.
 
 Stack: Next.js 16.3.5 (App Router), React 19.2.8, three 0.186, TypeScript 5,
 vitest 4.1.11. The reconstruction worker is a separate Python 3.12 package in
@@ -29,6 +34,7 @@ photograph → worker → intermediate → SceneCompiler → Scene (+ SceneEvide
                           words → design agent (server, model) → validated reading → the same paths  (6)
 upload → job → the same worker → the same SceneCompiler → workspace   (7: orchestration only)
 evidence + diagnostics → Evidence panel / title block; marks on the photo → calibration.json → recompile   (8)
+words → design agent → checks / directions named → each direction laid over the room as Preview does → Phase 5 measures   (9: read-only)
 ```
 
 ---
@@ -315,10 +321,12 @@ text → IntentReader → validateIntent → SceneIntent
   face, turn, move, colour, material class, not-a-finish, warmth and light,
   size, recognised-but-unavailable). Anything outside them returns null.
 - `rules/messages.ts` — every sentence the person can be shown.
-- **No LLM is configured.** No provider, no API key path, no network call
-  anywhere in this layer; with no interpreter passed at all the workspace uses
-  `notConnected`, which refuses and says why. Nothing ever fabricates a model
-  response.
+- **No LLM is configured in this layer.** No provider, no API key path, no
+  network call anywhere in it; with no interpreter passed at all the workspace
+  uses `notConnected`, which refuses and says why. Nothing ever fabricates a
+  model response. (Still true of the command layer. The design agent of
+  Phases 6 and 9, §25, sits in front of it and never replaces it: commands
+  are still read by these rules, in the person's own words.)
 
 The command bar is shared with the design engine. `WorkspaceStore.run()` reads
 the words for a design request first (`readDesignRequest`, §13.4); only when
@@ -491,7 +499,9 @@ shown at all.
 `LLMDesignIntentProvider` implements — `kind: "rules" | "model"`, a name, a
 note, examples, and `read(text, signal) → unknown`. The build ships exactly
 one: `designRules`, deterministic, with no provider, no credential path and no
-network call anywhere in the layer.
+network call anywhere in the layer. (Since Phase 6 a model's design reading
+reaches the engine by another door: the agent's reply is validated and handed
+to `fromIntent`, the same function this provider's output reaches, §25.)
 
 ### 13.3 Reading a design request (`read.ts`)
 
@@ -1102,7 +1112,11 @@ error."
 | `circulation-at-least` | Is there at least 80 cm of circulation space (on the way from a doorway to every seat)? |
 
 This is a typed API only. There is no natural-language reading of these
-questions and they are not wired into the command bar.
+questions and they are not wired into the command bar. (Superseded: since
+Phase 6 the design agent reads a question into one of these kinds and the
+command bar shows `answer()`'s sentence; since Phase 9 the same questions can
+also be asked of the design directions on screen, §25. The API itself is
+unchanged.)
 
 ### 15.7 In the workspace
 
@@ -1390,9 +1404,11 @@ identity, and pixel-diffed screenshots.
   (`DesignAnalysis.layout`, §14.2) records the primary and secondary seats,
   the focal screen and table, and the relationships recomputed from the
   geometry, and only layouts use them.
-- **No real LLM provider is connected.** `DesignIntentProvider` exists and is
-  enforced by `validateDesignIntent`; the only implementation is the rule
-  reader. No provider, credential path or network call exists in the layer.
+- **No real LLM provider is connected to this layer.** `DesignIntentProvider`
+  exists and is enforced by `validateDesignIntent`; the only implementation is
+  the rule reader. No provider, credential path or network call exists in the
+  layer. (The design agent, Phases 6 and 9, is outside it and calls
+  `fromIntent` with a validated intent, §25.)
 
 **Spatial layout (Phase 4B)**
 
@@ -1447,20 +1463,25 @@ identity, and pixel-diffed screenshots.
 - **Floor contact** is the compiler's placement, not a measured contact.
 - **Typed questions only:** the spatial question API is not reachable from
   the command bar, and nothing reads a spoken or typed question into it.
+  (Superseded by Phase 6: the design agent reads typed questions into it, §25.)
 - **A gap of exactly zero** formats as "≈ 0.00 m" in the typed API. The
   Inspector shows "against …" instead.
 - **Where it shows:** the title block, and so the Floor row, appears only at
   desktop widths. Tablet and phone layouts hide the title block, as before.
 - **No in-app calibration:** the app offers no way to enter a measurement or
-  calibrate, so every room here is scale `estimated`, factor 1.
+  calibrate, so every room here is scale `estimated`, factor 1. (Superseded
+  by Phase 8, §24.)
 
-**Not wired up**
+**Not wired up** (as of Phase 5; see the notes)
 
 - No language model anywhere: `ruleReader` and `designRules` are the only
   readers, and the workspace says plainly that they are rule-based.
+  (Superseded by Phase 6: an optional server-side design agent, §25. The two
+  rule readers are unchanged and remain the only readers when it is off.)
 - The entry page (`/workspace`) reads a photograph in the browser and
   measures its tones; it cannot start a reconstruction. Runs are made by hand
-  in WSL and read back through `DATUM_RECONSTRUCTION_RUNS`.
+  in WSL and read back through `DATUM_RECONSTRUCTION_RUNS`. (Superseded by
+  Phase 7, §23.)
 - **Calibration remains deferred in the product.** The compiler applies a
   `calibration.json` and reports residuals, but the only way to make one is
   the worker's CLI. Phase 5 derives and shows measurements from the Scene; it
@@ -1709,6 +1730,10 @@ src/features/workspace/
                            provenance.ts (inputs, edited-vs-found), geometry.ts, room.ts, floor.ts,
                            objects.ts, openings.ts, distance.ts, walkways.ts, questions.ts,
                            format.ts, scene.ts (measureScene), index.ts, + 2 test files
+  agent/                   the design agent (Phases 6 and 9, §25): types.ts (reply contract), schema.ts,
+                           validate.ts, prompt.ts, brief.ts, route.ts (preRoute), question.ts,
+                           evaluate.ts (Phase 9: directions measured), messages.ts, client.ts,
+                           server/{handler,config,anthropic,groq}.ts, + 5 test files
   command/                 CommandBar.tsx (one line, kinds of answer, clickable choices), ChangeProposal.tsx
   reconstruction/          loadRun.ts (readCalibration), localRuns.ts, ReconstructionIndex/Workspace.tsx,
                            describe.ts, calibration.test.ts
@@ -1718,6 +1743,8 @@ src/features/workspace/
   panels/, Inspector.tsx, Viewport.tsx, TopBar.tsx, scene/  the workspace itself
 src/app/workspace/         /workspace, /workspace/demo, /workspace/reconstruction[/runId]
 src/app/api/reconstructions/local/   dev-only run listing and file reading
+src/app/api/agent/design/  the design agent's route: GET status, POST read (off unless configured)
+scripts/browser/           the headless-Chrome regression harnesses (§24.5, §25.7)
 src/demo/                  the hand-authored demonstration room
 docs/reconstruction-architecture.md  the design document (committed)
 ~/datum-recon (WSL)        the Python worker: reconstruction/*.py, tests/, weights/, runs/
@@ -1725,7 +1752,7 @@ docs/reconstruction-architecture.md  the design document (committed)
 
 ## 22. Git and implementation status
 
-Branch `landing-workspace-refinement`. Nothing has been pushed.
+Branch `landing-workspace-refinement`, pushed to `origin` up to `4fefcc4`.
 
 | Commit | Contents |
 |---|---|
@@ -1736,7 +1763,9 @@ Branch `landing-workspace-refinement`. Nothing has been pushed.
 | `93a9a93` | spatial layout and measurement (Phases 4B and 5; the file list below) |
 | `c7b3cf5` | the real AI design agent (Phase 6) |
 | `032d7ee` | upload → reconstruction pipeline (Phase 7, §23) |
-| (this commit) | reconstruction trust and calibration (Phase 8, §24) |
+| `df7af47` | reconstruction trust and calibration (Phase 8, §24) |
+| `4fefcc4` | the Phase 3E–6 browser harnesses, moved into `scripts/browser/` |
+| (not yet committed) | AI Design Agent 2.0 (Phase 9, §25) |
 
 **Phase 6** (`c7b3cf5`) is a server-side design agent behind
 `/api/agent/design` (`src/features/workspace/agent/`). It is off unless
@@ -1748,7 +1777,11 @@ labels the bound agent `Claude (<model>)` whichever provider serves it.
 
 **Phase 7** (§23) is committed at `032d7ee`. It changes no worker, model,
 compiler or Phase 3E–6 file. **Phase 8** (§24) is committed on top of it and
-changes no worker, model, compiler, or Phase 3E–7 logic.
+changes no worker, model, compiler, or Phase 3E–7 logic. **Phase 9** (§25) is
+in the working tree. It extends the agent (`agent/`) and adds an optional
+field to the design session, the check lines on the cards, and two store
+methods; it changes no worker, model, compiler, provider adapter, or Phase
+3E–8 logic (§25.6 lists every file).
 
 What `93a9a93` contained, as recorded before it was committed:
 
@@ -1892,7 +1925,8 @@ stops a run from opening.
 
 **Browser checks outside the repository.** The Phase 3E–6 checks are
 throwaway DevTools-protocol scripts in a session scratchpad, not in this
-repository. The Phase 6 check A1 used to expect the fixed label
+repository. (Superseded by `4fefcc4`: they are now in `scripts/browser/`,
+§24.6.) The Phase 6 check A1 used to expect the fixed label
 `Claude (claude-opus-5)`. It now compares the bound agent with the model
 `GET /api/agent/design` reports as configured, so it holds for either
 provider.
@@ -2089,3 +2123,335 @@ directions were open. The designs-open rule above fixed it, and the
   runs after `npm run build` with `node scripts/browser/<name>.mjs`, starts its
   own `next start` on a temporary copy of the run, and exits non-zero on a
   failure. `design-agent.mjs` uses canned replies and never calls a model.
+
+## 25. AI design agent (Phases 6 and 9)
+
+The design agent is a language model placed in front of the deterministic
+engine. It reads a person's words and answers with typed concepts. The engine
+does everything else: it builds proposals, resolves pieces, measures, compares
+and writes every sentence shown. The model never mutates the Scene, sees an
+id, names an operation, position, dimension or material, calls a tool, or
+reaches the filesystem or the browser.
+
+```
+words + room brief → model (server, one structured-output call) → AgentReply
+    → validateAgentReply (server: the authority; browser: again)
+    → design:   validateDesignIntent → fromIntent → the Phase 4A/4B proposals
+                  [+ Phase 9 checks: each new direction measured by Phase 5]
+    → question: phrases → Phase 3E resolver → Phase 5 answer()
+                  [+ Phase 9 directions: each named direction laid over the room, then answer()]
+    → command:  the person's own words → the Phase 3E rules
+    → clarify / out_of_scope: a fixed sentence
+```
+
+### 25.1 The boundary (Phase 6, unchanged)
+
+- **Server only.** `/api/agent/design` (`agent/server/handler.ts`): GET says
+  whether an agent is configured and with which model; POST reads one
+  request. It is off (404) unless `DATUM_DESIGN_AGENT` is `anthropic` or
+  `groq`, with its key in a server-only variable. The route is same-origin
+  only, size-limited (16 kB) and rate-limited (20 a minute).
+- **One call, no tools.** Each adapter (`anthropic.ts`, `groq.ts`) makes one
+  structured-output call against `AGENT_REPLY_SCHEMA`, checks the reply with
+  `validateAgentReply`, allows one repair turn with the validator's reason,
+  and then fails by name. Nothing is clamped or repaired in code.
+- **What the model sees.** The fixed system prompt (`prompt.ts`), the words,
+  and the room brief (`brief.ts`). The brief lists pieces by label, Phase 5's
+  rounded numbers with their basis, the openings, and the directions on
+  screen by number and title. It has no ids, paths or pixels, and it is the
+  same text for the same room.
+- **What is shown.** Every sentence comes from `agent/messages.ts`, Phase 5's
+  `answer()`, or the design engine. The model writes none of them.
+- **The label.** The workspace names the bound agent `Claude (<model>)`,
+  whichever provider serves it (§22). Unchanged in Phase 9.
+
+### 25.2 Routing (Phase 6, one Phase 9 narrowing)
+
+`preRoute` (`agent/route.ts`) runs only when an agent is bound. With none, the
+workspace routes exactly as before Phase 6.
+
+1. An act on the directions on screen (apply, preview, close, "the second
+   one") stays on the rules.
+2. A question goes to the agent.
+3. A design brief the rules recognise goes to the agent, with the rules'
+   reading as the fallback.
+4. Anything else is tried as a Phase 3E command first; only words the command
+   rules cannot read reach the agent.
+
+When the agent fails, a stated circulation threshold is answered as a
+measurement, a brief the rules can read is read by them (and the note says
+so), and anything else is "couldn't be answered without it".
+
+**Phase 9 narrowing.** The design reader takes a direction named by its
+number with no verb it knows as a preview ("check the second one", "compare
+the first and second designs", "test the first design"). In agent mode, such
+words go to the agent when they ask for something to be measured or compared
+(compare, check, measure, evaluate, assess, test, verify) and name no preview
+verb. They are marked `onScreen`: if the agent fails, they are not answered
+about the room instead, not previewed, and not turned into designs. Every
+explicit act ("apply the second design", "show me the second one", "the
+second one") is routed as before, and the rules themselves are unchanged.
+
+### 25.3 The reply contract (`agent-reply-0.2`, Phase 9)
+
+```
+{ version: "agent-reply-0.2",
+  route: "design" | "question" | "command" | "clarify" | "out_of_scope",
+  design:     DesignIntent 0.2 | null,        // unchanged
+  checks:     Question[] | null,              // Phase 9: with design only, 1–3, none repeated
+  question:   Question | null,                // unchanged
+  directions: integer[] | null,               // Phase 9: with question only, 1–3, none repeated
+  clarify, outOfScope }                       // unchanged
+Question = { kind, subject, other, metres }   // unchanged
+```
+
+- **What a direction can change.** Checks and questions about directions
+  take only `DIRECTION_KINDS`: `free-floor`, `circulation-area`, `walkway`,
+  `distance` and `circulation-at-least`. A direction moves and refinishes
+  what the room has and never changes a size, so `room-size` and
+  `object-size` are refused. `clearance` is also left out, because its
+  four-sided answer does not fit one line.
+- **Held to Phase 6's rules.** Every field is required and every unknown
+  field is refused, not stripped. Each check is held to the question rules:
+  its fields, plain words, and a threshold only when the person stated it.
+  Whether a numbered direction is actually on screen is the workspace's to
+  say.
+- **0.1 still reads.** A 0.1 reply is checked against 0.1's own key set and
+  rules, and gives exactly the reply it always did. The model is asked for
+  0.2; the Phase 6 harness still sends 0.1 replies and passes unchanged.
+- **The prompt** adds six lines built from the code's constants: what
+  directions and checks are, the kinds they allow, and that the model never
+  previews, applies, ranks or scores a direction, or says which is best. Two
+  of the six were added after the live run (§25.7), each with a worked
+  example that a test also runs through the validator:
+  - checks come on top of a design, never instead of it ("three furniture
+    layouts that keep at least 80 cm…" still sets `layout`, and "keep at
+    least 80 cm" is a check, never `layout.preserve`);
+  - a direction already on screen, named by its number, is asked about with
+    `question` and `directions`, never with a new design or checks ("check
+    the second one for 80 cm to every seat" → directions [2]).
+
+### 25.4 Measuring directions (`agent/evaluate.ts`)
+
+- **How a direction is measured.** It is laid over the document exactly as
+  Preview lays it, with `applyOperations(doc.scene, proposal.operations)`,
+  the renderer's own derivation. Phase 5's `answer()` is then asked the same
+  typed question on that arrangement and on the room as it is ("now"). Every
+  number, verdict and basis is Phase 5's, including "as edited" for a
+  direction that moves furniture.
+- **Pieces.** Names are resolved once, on the room as shown and with the
+  selection, by the Phase 3E resolver, as Phase 6 resolves them. Ids do not
+  change between directions. A name that fits several pieces is asked back
+  with options; choosing one measures again without asking the model.
+- **Values compared.** The free floor, the circulation area, the way's width,
+  the distance, and, for "at least", the narrowest way to a seat with Phase
+  5's verdict.
+- **Comparing two values** uses Phase 5's rounding contract on both. A
+  direction reads more than another only when the difference is at least the
+  coarser of the two steps, the rounded values differ, and the smaller is not
+  a lower bound (it could be more).
+  - A **most** or **least** is named only when one direction stands apart
+    from every other.
+  - Otherwise the note says "No one direction can be meaningfully told apart
+    from all the others on …", or, when one stands apart, "the others cannot
+    be meaningfully told apart".
+  - Nothing is scored, ranked, rated or called best. A test checks the words
+    for that.
+- **Thresholds** give each direction's own verdict (yes, no or too close to
+  call) and are not compared.
+- **The words.** One direction gives Phase 5's own sentence, measured on it.
+  Several give the values with their bases, then the comparison, then the
+  scale note once. On the real room:
+
+  > Circulation area, with each direction laid over the room as its preview
+  > shows it: now ≈ 7.5 m² (default); 1. Around the television ≈ 8 m²
+  > (default, as edited); 2. Conversation around the coffee table ≈ 8 m²
+  > (default, as edited); 3. Open floor ≈ 9 m² (default, as edited). Open
+  > floor leaves the most circulation area; the others cannot be meaningfully
+  > told apart. Not calibrated: every length shares one unknown scale error.
+
+- **Read-only.** A question about directions changes nothing: not the
+  document, the history, the preview, or the session (the same objects before
+  and after, tested in the store and in the browser).
+
+### 25.5 Checks on a design's new directions
+
+- **Built exactly as before.** A `design` reply with `checks` is built by
+  `fromIntent` as it always is; the proposals are byte-identical to the same
+  request without checks (tested, and compared in the browser). Each check is
+  then measured on every new direction.
+- **Carried beside the proposals.** The results travel on the session as the
+  optional `DesignSession.checks`: a label, the room they were measured on
+  (`measuredOn`), and one short line per proposal id with Phase 5's verdict
+  where there is one. No proposal carries a check.
+- **On the cards.** Each card shows its lines under the counts (for example
+  "At least 80 cm to every seat: no (narrowest ≈ 0.55 m)" and "Circulation
+  area ≈ 8 m²"), in plain text, never coloured as a score. The command bar
+  gives one note: each check's comparison or grouped verdicts ("no for 1 and
+  2; too close to call for 3").
+- **When they stop applying.** The lines describe `measuredOn` only. Once the
+  document changes (apply, an edit, undo), they are withdrawn and the rail
+  says why. They are not recomputed, and undo does not bring them back,
+  because it gives a new Scene object.
+- **An ambiguous name** in a check is not guessed. The note names the pieces
+  that fit ("Not checked — more than one piece fits (Chair, Armchair 1,
+  Armchair 2): name one to check it.") and the designs are still offered.
+
+### 25.6 Files (Phase 9)
+
+- **New:**
+  - `agent/evaluate.ts`
+  - `agent/evaluate.test.ts` (16 tests)
+  - `agent/agent.checks.test.ts` (16 tests: contract, routing, prompt)
+  - `agent/agent.checks.store.test.ts` (8 tests)
+  - `scripts/browser/design-agent-checks.mjs`
+- **Modified, agent:**
+  - `types.ts`: 0.2, `DIRECTION_KINDS`, `MAX_CHECKS`, the reply union.
+  - `schema.ts`: `checks`, `directions`.
+  - `validate.ts`: version dispatch, checks, directions.
+  - `prompt.ts`: six lines.
+  - `messages.ts`: the fixed words.
+  - `question.ts`: `spatialQuestionOf` split out of `resolveQuestion`,
+    behaviour unchanged; the threshold reply built in 0.2.
+  - `route.ts`: the narrowing above.
+- **Modified, elsewhere:**
+  - `state/store.ts`: design checks, `measureDirections`, the `onScreen`
+    fallback.
+  - `design/session.ts`: the optional `checks` type.
+  - `design/index.ts`: exports.
+  - `design/messages.ts`: one sentence.
+  - `design/DesignDirections.tsx` and `.module.css`: the lines and the note.
+- **Unchanged:**
+  - the provider adapters, config, handler and route;
+  - `brief.ts` and `client.ts`;
+  - the Phase 3E rules;
+  - the 4A generator, styles, validator and proposal contract;
+  - the 4B planner, strategies, validator and thresholds;
+  - Phase 5's measurement;
+  - the compiler, the worker and the Scene contract.
+
+### 25.7 Verification (29 September 2026)
+
+On the final working tree, against a fresh production build, with headless
+Chrome and real mouse and keyboard input:
+
+| Check | Result |
+|---|---|
+| Vitest | 357/357 (21 files): 40 new, and all 53 Phase 6 agent tests unchanged |
+| Typecheck, production build | clean |
+| Lint | 0 errors. 9 warnings, all in three harnesses committed in `4fefcc4` (unused helpers kept from the scratchpad versions); the same 9 at `HEAD` without Phase 9. The new harness is clean. |
+| Main browser regression (`workspace-regression.mjs`) | 32/32 |
+| Phase 4A (`finish-designs.mjs`) | 7/7 |
+| Phase 6 agent, 0.1 canned replies (`design-agent.mjs`) | 14/14 |
+| Phase 7 upload pipeline (`upload-pipeline.mjs`) | 10/10 |
+| Phase 8 (`calibration.mjs`) | 15/15 |
+| **Phase 9 (`design-agent-checks.mjs`)** | **14/14** |
+
+**`design-agent-checks.mjs`** uses canned 0.2 replies (and one 0.1),
+intercepted in the browser, with the server pointed at an unreachable API
+address. It checks:
+- the bound agent;
+- a plain layout request with no lines on the cards;
+- the same request with two checks, whose plans are byte-identical, with each
+  card's lines, the note, and nothing applied;
+- a preview with the lines kept;
+- a comparison asked during a preview, leaving the session, preview,
+  document and history as the same objects;
+- one direction answered with Phase 5's own sentence;
+- an ambiguous piece asked back and then measured without a second model
+  call;
+- "check the second one" measured, not previewed;
+- apply as one step with exact undo, and the lines withdrawn with the note;
+- a 0.1 reply read as before;
+- indistinguishable finish directions said to be so;
+- the lines fitting at 1440×900, 1280×720 and 390×844;
+- requests carrying only the words and the brief;
+- no console errors.
+
+**Live provider (Groq, `openai/gpt-oss-120b`, low effort; 29 September
+2026).** Three requests went through the real UI and `/api/agent/design` to
+Groq, with nothing intercepted, against `next start` with `.env.local` on a
+temporary copy of the run. The script was a throwaway outside the repository
+and has been deleted.
+
+| Request | Live reply (server- and browser-validated) | In the workspace |
+|---|---|---|
+| "Give me three furniture layouts that keep at least 80 cm of circulation space." | 0.2, `design`: finishes false, `variantCount` 3, layout set; checks `[circulation-at-least, 0.8]` | The three layouts, each card with its line: no (≈ 0.55 m), no (≈ 0.55 m), too close to call (≈ 0.8 m). Document unchanged. |
+| "Which layout leaves the most circulation area?" | 0.2, `question`: `circulation-area`, directions [1, 2, 3] | "…Open floor leaves the most circulation area; the others cannot be meaningfully told apart." The document and session were the same objects before and after, with no history and no preview. |
+| "Check the second one for 80 cm to every seat." | 0.2, `question`: `circulation-at-least`, 0.8, directions [2] | Phase 5's answer measured on direction 2. Not previewed, and the same objects before and after. |
+
+- **Accepted on the first attempt.** All three replies passed the validator
+  first time (no repair turn), and the server logged no agent failure.
+- **The key** was found in none of: the status response, the requests and
+  responses, the page and browser storage, the console, the harness and
+  server logs, the 30 client bundle files, or the files written. The prompt
+  text is in the server bundle only.
+
+How it got there, from what the live runs found:
+
+1. **First live run.** Request 1 failed. Groq sent `finishes: false` with
+   `layout: null`, as if the check replaced the layout, and the frozen intent
+   rules refused it ("the intent asks for neither finishes nor a layout").
+   Requests 2 and 3 were rate-limited. **Fix 1** (prompt): checks come on top
+   of a design, with this request as the worked example.
+2. **Second live run.** Requests 1 and 2 passed. Request 3 was answered, and
+   repaired, as a new design with a check, and was refused. It reached the
+   agent, was not previewed, and changed nothing: the `onScreen` failure path
+   said it couldn't be answered, and did not answer about the room instead.
+   **Fix 2** (prompt): a direction already on screen, named by its number,
+   is a question with directions, with this request as the worked example.
+3. **Request 3 repeated six times** through the real adapter, 40 s apart,
+   after fix 2:
+   - five ended with exactly the intended reply;
+   - one was rate-limited during its repair turn;
+   - three of the six needed the repair turn: the first reply was refused
+     and the repaired one was right.
+
+   No wrong reply was ever accepted.
+
+**Rate limit.** This Groq tier allows 8,000 tokens a minute. A request uses
+about 3,600 (3,300 of them prompt), and a repair turn doubles that. Requests
+closer than about a minute apart, or a repair, can be refused as "busy"
+(`rate-limited`), which the workspace says in its own words.
+
+### 25.8 Known limitations
+
+- **No conversation memory**, by decision. Each request is read on its own;
+  the only context is the selection and the directions on screen (by number
+  and title, in the brief).
+- **No refinement of a direction** ("the second one, but warmer"). That would
+  need the 4A generator to fix a variant, which Phase 9 does not change.
+- **The agent never previews or applies.** Only the person's click or
+  explicit words do.
+- **Checks are not kept current.** They describe the room they were measured
+  on, and are withdrawn, not recomputed, once the document changes.
+- **What can be measured on a direction:** free floor, circulation area, a
+  walkway, a distance and a circulation threshold. Not sizes, which never
+  change, and not clearance.
+- **Phase 5's limits carry over.** σ is null; rounding is by basis; the room
+  is one photograph with an uncalibrated scale unless calibrated. Free floor
+  rarely differs between layouts, because a layout only moves pieces within
+  the room: on the fixture it is identical across all three, and the note
+  says they cannot be told apart.
+- **Without the agent** there is no reader for questions about directions. A
+  sentence the rules read as a brief (for example "compare the three
+  layouts") falls back, on an agent failure, to the rules' new designs with
+  the note saying so, exactly as in Phase 6.
+- **Rail space.** A long request in the rail header, together with the title
+  block's Status row (Phase 8), leaves a short, scrolling card list at
+  desktop sizes. The lines are there and fit (tested), but may need a scroll
+  to see.
+- **Live reliability** (§25.7):
+  - Groq generates the 0.2 schema, and the three requests passed live.
+  - For "check the second one for 80 cm…", about half the first replies
+    still needed the repair turn, and a repair can run into the rate limit.
+    The validator refuses a wrong reply; it never shows it.
+  - The model's sampling is not controlled. The adapters set no temperature,
+    unchanged from Phase 6.
+- **Anthropic not tried live.** Claude's structured outputs were not run with
+  the 0.2 schema: this machine is configured for Groq.
+- **The key in Next's build cache.** Turbopack's local caches
+  (`.next/cache/turbopack`, `.next/dev/cache/turbopack`) hold the contents of
+  `.env.local`, as Next.js records them on every build. They are gitignored
+  and never served.
+- **The label** still reads `Claude (<model>)` for a Groq model (§22).

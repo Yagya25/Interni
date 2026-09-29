@@ -34,6 +34,30 @@ export interface DesignSession {
   previewId: string | null;
   /** The one applied to the document, if any. */
   appliedId: string | null;
+  /**
+   * What was measured on each direction, when the request asked (Phase 9).
+   * Derived metadata beside the proposals, never part of them: a checked
+   * proposal is the same plan, operation for operation, as an unchecked one.
+   */
+  checks?: readonly DirectionCheck[];
+}
+
+/** One thing measured on every direction, by Phase 5, with the direction laid over the room as Preview lays it. */
+export interface DirectionCheck {
+  /** What was measured, in the person's terms: "Free floor", "At least 80 cm to every seat". */
+  label: string;
+  /** The room the directions were laid over. The lines describe that room, and only while it is the room. */
+  measuredOn: Scene;
+  /** One short line per direction. */
+  results: readonly DirectionCheckResult[];
+}
+
+export interface DirectionCheckResult {
+  proposalId: string;
+  /** "Free floor ≈ 18 m²", "At least 80 cm to every seat: no (narrowest ≈ 0.55 m)". */
+  text: string;
+  /** Phase 5's verdict, for a check that asks for one. */
+  verdict: "yes" | "no" | "too-close-to-call" | null;
 }
 
 export type DesignOutcome =

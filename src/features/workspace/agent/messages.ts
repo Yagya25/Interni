@@ -30,4 +30,28 @@ export const AGENT_MESSAGES = {
   whichOne: (words: string) => `“${words}” fits more than one piece. Which one do you mean?`,
   cannotMeasure: (words: string) => `“${words}” isn’t something that can be measured to here; name a piece of furniture or the doorway.`,
   noAnswer: (reason: string) => `That couldn’t be measured: ${reason}.`,
+
+  // Phase 9: the directions on screen, measured by the engine.
+  directions: {
+    none: "There are no design directions on screen to measure. Ask for some first — “give me three furniture layouts”.",
+    notThatMany: (count: number) => `There ${count === 1 ? "is one direction" : `are ${count} directions`} on screen.`,
+    /** Before Phase 5's own answer, for one direction. */
+    one: (ordinal: number, title: string) => `${ordinal}. ${title}, laid over the room as its preview shows it: `,
+    /** Before the values, for several. */
+    each: (label: string) => `${label}, with each direction laid over the room as its preview shows it:`,
+    now: "now",
+    unmeasured: "couldn’t be measured",
+    unreachable: "a seat can’t be reached from the way in",
+    verdict: { yes: "yes", no: "no", "too-close-to-call": "too close to call" },
+    narrowest: "narrowest",
+    /** No direction stands apart from every other: said instead of a most or a least. */
+    indistinct: (topic: string) => `No one direction can be meaningfully told apart from all the others on ${topic}: the differences are within the steps the values are known to.`,
+    others: "the others cannot be meaningfully told apart.",
+    checked: "Measured on each new direction:",
+    notChecked: (message: string) => `Not checked — ${message}`,
+    /** A check whose piece fits several: named, since a check offers nothing to click. */
+    notCheckedWhich: (labels: readonly string[]) => `Not checked — more than one piece fits (${labels.join(", ")}): name one to check it.`,
+    uncalibrated: "Not calibrated: every length shares one unknown scale error.",
+    authored: "This room was authored, not measured.",
+  },
 };

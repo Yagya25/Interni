@@ -15,9 +15,17 @@ import type { SpatialQuestion } from "../measure";
  * id, an operation, a coordinate, an angle, a colour or a material, and it
  * never sees an id: the brief names pieces by their labels. Every number
  * shown to the person comes from the deterministic engine.
+ *
+ * Phase 9 (0.2) adds two things, both still concepts: a question may name
+ * the directions on screen it is about (`directions`, their numbers), and a
+ * design may ask for up to three things to be measured on each new
+ * direction (`checks`). The engine lays each direction over the room exactly
+ * as Preview does and measures it with Phase 5; the model states no value.
  */
 
-export const AGENT_REPLY_VERSION = "agent-reply-0.1";
+export const AGENT_REPLY_VERSION = "agent-reply-0.2";
+/** Phase 6's version: still accepted exactly as it was, with neither directions nor checks. */
+export const AGENT_REPLY_VERSION_0_1 = "agent-reply-0.1";
 
 export const ROUTES = ["design", "question", "command", "clarify", "out_of_scope"] as const;
 export type AgentRoute = (typeof ROUTES)[number];
@@ -52,10 +60,25 @@ export interface QuestionWire {
   metres: number | null;
 }
 
+/**
+ * The question kinds a design direction can change the answer to, and so
+ * the only ones measured on directions. A direction moves and refinishes
+ * what the room has; it never changes a size.
+ */
+export const DIRECTION_KINDS = ["free-floor", "circulation-area", "walkway", "distance", "circulation-at-least"] as const satisfies readonly QuestionKind[];
+export type DirectionKind = (typeof DIRECTION_KINDS)[number];
+export type DirectionQuestion = QuestionWire & { kind: DirectionKind };
+export const isDirectionQuestion = (q: QuestionWire): q is DirectionQuestion => (DIRECTION_KINDS as readonly string[]).includes(q.kind);
+
+/** At most this many checks with one design request. */
+export const MAX_CHECKS = 3;
+
 /** A reply that has passed `validateAgentReply`. */
 export type AgentReply =
-  | { route: "design"; design: DesignIntent }
-  | { route: "question"; question: QuestionWire }
+  | { route: "design"; design: DesignIntent; checks?: readonly DirectionQuestion[] }
+  | { route: "question"; question: QuestionWire; directions?: undefined }
+  /** A question about directions on screen, by their 1-based numbers. */
+  | { route: "question"; question: DirectionQuestion; directions: readonly number[] }
   | { route: "command" }
   | { route: "clarify"; clarify: ClarifyReason }
   | { route: "out_of_scope"; outOfScope: OutOfScopeReason };

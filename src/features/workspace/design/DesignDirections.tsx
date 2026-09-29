@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useStore, useWorkspace } from "../state/store";
 import styles from "./DesignDirections.module.css";
+import { MESSAGES } from "./messages";
 import type { DesignProposal } from "./proposal";
+import type { DirectionCheckResult } from "./session";
 
 /**
  * Directions for the room.
@@ -19,10 +21,15 @@ import type { DesignProposal } from "./proposal";
 export function DesignDirections() {
   const store = useStore();
   const design = useWorkspace((s) => s.design);
+  const room = useWorkspace((s) => s.doc.scene);
   const [expanded, setExpanded] = useState<string | null>(null);
   if (!design) return null;
 
   const { proposals, previewId, appliedId } = design;
+  // What was measured on each direction describes the room it was measured on, and only that room.
+  const checks = design.checks ?? [];
+  const current = checks.filter((check) => check.measuredOn === room);
+  const linesFor = (id: string) => current.flatMap((check) => check.results.filter((result) => result.proposalId === id));
 
   return (
     <aside className={styles.rail} aria-label="Design directions">
@@ -48,10 +55,17 @@ export function DesignDirections() {
               applied={proposal.id === appliedId}
               open={expanded === proposal.id}
               onToggle={() => setExpanded(expanded === proposal.id ? null : proposal.id)}
+              checks={linesFor(proposal.id)}
             />
           </li>
         ))}
       </ul>
+
+      {current.length < checks.length && (
+        <p className={styles.stale} role="note">
+          {MESSAGES.checksStale}
+        </p>
+      )}
 
       {design.rejected.length > 0 && (
         <p className={styles.rejected} role="status">
@@ -69,9 +83,11 @@ interface CardProps {
   applied: boolean;
   open: boolean;
   onToggle: () => void;
+  /** What was measured on this direction, one line per check (Phase 9). Phase 5's numbers and verdicts, never a score. */
+  checks: readonly DirectionCheckResult[];
 }
 
-function Card({ proposal, previewing, applied, open, onToggle }: CardProps) {
+function Card({ proposal, previewing, applied, open, onToggle, checks }: CardProps) {
   const store = useStore();
   const { preview } = proposal;
 
@@ -86,6 +102,16 @@ function Card({ proposal, previewing, applied, open, onToggle }: CardProps) {
         {preview.restyledObjectCount > 0 && <span>{preview.restyledObjectCount} pieces</span>}
         {preview.changedLightCount > 0 && <span>{preview.changedLightCount === 1 ? "1 light" : `${preview.changedLightCount} lights`}</span>}
       </p>
+
+      {checks.length > 0 && (
+        <ul className={styles.checks} aria-label="Measured on this direction">
+          {checks.map((check, i) => (
+            <li key={i} data-verdict={check.verdict ?? undefined}>
+              {check.text}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className={styles.buttons}>
         <button

@@ -15,7 +15,7 @@ export { axesOf, DESIGN_INTENT_VERSION, MAX_VARIANTS, validateDesignIntent, type
 export { MESSAGES as DESIGN_MESSAGES } from "./messages";
 export { previewOf, withStatus, type DesignProposal, type ProposalPreview, type ProposalStatus, type RejectedProposal } from "./proposal";
 export { designRules, readBrief, readDesignRequest, type DesignIntentProvider, type DesignRequest } from "./read";
-export { applied, fromIntent, previewing, proposalAt, proposalOf, readDesigns, type DesignOutcome, type DesignSession } from "./session";
+export { applied, fromIntent, previewing, proposalAt, proposalOf, readDesigns, type DesignOutcome, type DesignSession, type DirectionCheck, type DirectionCheckResult } from "./session";
 export { resolveScheme, STYLES, STYLE_ORDER, styleFor, type DesignScheme, type DesignStyle, type StyleAxes, type StylePreset, type StyleVariant } from "./styles";
 export { validateOperations, type ProposalCheck } from "./validate";
 export {

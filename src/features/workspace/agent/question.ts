@@ -25,7 +25,10 @@ export type QuestionResult =
   | { kind: "clarify"; message: string; options: readonly ClarifyOption[] }
   | { kind: "none"; message: string };
 
-type Named = { ok: true; id: Id } | { ok: false; result: QuestionResult };
+/** Why a question could not be put to the engine: a question back, or a plain reason. */
+export type Unanswered = Exclude<QuestionResult, { kind: "answer" }>;
+
+type Named = { ok: true; id: Id } | { ok: false; result: Unanswered };
 
 function named(scene: Scene, words: string, selectionId: Id | null, openings: boolean): Named {
   const resolved = resolveEntity(scene, entityOf(normalise(words)), selectionId, { roomFallback: false });
@@ -67,7 +70,9 @@ export function readThresholdQuestion(text: string): QuestionWire | null {
     version: AGENT_REPLY_VERSION,
     route: "question",
     design: null,
+    checks: null,
     question: { kind: "circulation-at-least", subject: null, other: null, metres: lengths[0] },
+    directions: null,
     clarify: null,
     outOfScope: null,
   };
@@ -76,34 +81,43 @@ export function readThresholdQuestion(text: string): QuestionWire | null {
 }
 
 export function resolveQuestion(wire: QuestionWire, scene: Scene, evidence: SceneEvidence | null, selectionId: Id | null): QuestionResult {
-  let question: SpatialQuestion;
+  const resolved = spatialQuestionOf(wire, scene, selectionId);
+  if (!resolved.ok) return resolved.result;
+  const result = answer(scene, evidence, resolved.question);
+  return result.ok ? { kind: "answer", answer: result } : { kind: "none", message: AGENT_MESSAGES.noAnswer(result.reason) };
+}
+
+/**
+ * The question in words as Phase 5's typed question: the pieces it names
+ * resolved against the Scene by the Phase 3E resolver, or why they could not
+ * be (a question back when a name fits several).
+ */
+export function spatialQuestionOf(
+  wire: QuestionWire,
+  scene: Scene,
+  selectionId: Id | null,
+): { ok: true; question: SpatialQuestion } | { ok: false; result: Unanswered } {
   const piece = (words: string | null, openings = false) => named(scene, words ?? "", selectionId, openings);
   switch (wire.kind) {
     case "room-size":
     case "free-floor":
     case "circulation-area":
-      question = { kind: wire.kind };
-      break;
+      return { ok: true, question: { kind: wire.kind } };
     case "circulation-at-least":
-      question = { kind: wire.kind, metres: wire.metres! };
-      break;
+      return { ok: true, question: { kind: wire.kind, metres: wire.metres! } };
     case "object-size":
     case "clearance":
     case "walkway": {
       const one = piece(wire.subject);
-      if (!one.ok) return one.result;
-      question = { kind: wire.kind, objectId: one.id };
-      break;
+      if (!one.ok) return one;
+      return { ok: true, question: { kind: wire.kind, objectId: one.id } };
     }
     case "distance": {
       const from = piece(wire.subject, true);
-      if (!from.ok) return from.result;
+      if (!from.ok) return from;
       const to = piece(wire.other, true);
-      if (!to.ok) return to.result;
-      question = { kind: "distance", from: from.id, to: to.id };
-      break;
+      if (!to.ok) return to;
+      return { ok: true, question: { kind: "distance", from: from.id, to: to.id } };
     }
   }
-  const result = answer(scene, evidence, question);
-  return result.ok ? { kind: "answer", answer: result } : { kind: "none", message: AGENT_MESSAGES.noAnswer(result.reason) };
 }

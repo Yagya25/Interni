@@ -1,7 +1,7 @@
 import { DESIGN_INTENT_VERSION } from "../design/intent";
 import { LAYOUT_AXES, LAYOUT_STYLES } from "../design/layout/intent";
 import { STYLE_ORDER } from "../design/styles";
-import { AGENT_REPLY_VERSION, CLARIFY_REASONS, OUT_OF_SCOPE_REASONS, QUESTION_KINDS, ROUTES } from "./types";
+import { AGENT_REPLY_VERSION, CLARIFY_REASONS, DIRECTION_KINDS, OUT_OF_SCOPE_REASONS, QUESTION_KINDS, ROUTES } from "./types";
 
 /**
  * The structured-output schema the model answers in.
@@ -39,18 +39,25 @@ const DESIGN = object({
   layout: nullable(LAYOUT),
 });
 
-const QUESTION = object({
-  kind: { type: "string", enum: [...QUESTION_KINDS] },
-  subject: nullable({ type: "string" }),
-  other: nullable({ type: "string" }),
-  metres: nullable({ type: "number" }),
-});
+const questionOf = (kinds: readonly string[]) =>
+  object({
+    kind: { type: "string", enum: [...kinds] },
+    subject: nullable({ type: "string" }),
+    other: nullable({ type: "string" }),
+    metres: nullable({ type: "number" }),
+  });
+
+const QUESTION = questionOf(QUESTION_KINDS);
+/** A check on each new direction: a question of a kind a direction can change. */
+const CHECK = questionOf(DIRECTION_KINDS);
 
 export const AGENT_REPLY_SCHEMA = object({
   version: { type: "string", enum: [AGENT_REPLY_VERSION] },
   route: { type: "string", enum: [...ROUTES] },
   design: nullable(DESIGN),
+  checks: nullable({ type: "array", items: CHECK }),
   question: nullable(QUESTION),
+  directions: nullable({ type: "array", items: { type: "integer" } }),
   clarify: nullable({ type: "string", enum: [...CLARIFY_REASONS] }),
   outOfScope: nullable({ type: "string", enum: [...OUT_OF_SCOPE_REASONS] }),
 });

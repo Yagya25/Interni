@@ -142,6 +142,21 @@
   content: "· ";
 }
 
+/* What was measured on this direction (Phase 9): Phase 5's numbers and
+   verdicts in plain text, never coloured as a score. */
+.checks {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--rule);
+  font-size: var(--text-small);
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+.checks li + li {
+  margin-top: 0.1rem;
+}
+
 .buttons {
   display: flex;
   gap: var(--space-2);
@@ -259,7 +274,8 @@
   color: var(--ink-3);
 }
 
-.rejected {
+.rejected,
+.stale {
   padding: var(--space-2) var(--space-4);
   border-top: 1px solid var(--rule);
   font-size: var(--text-small);

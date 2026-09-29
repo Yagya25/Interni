@@ -17,10 +17,11 @@ import { readDesignRequest, type DesignRequest } from "../design/read";
 import { fromIntent } from "../design/session";
 import type { SceneEvidence } from "@/scene/compile/evidence";
 import { roomBrief } from "../agent/brief";
+import { checkDirections, directionsNote, evaluateDirections } from "../agent/evaluate";
 import { AGENT_MESSAGES } from "../agent/messages";
-import { readThresholdQuestion, resolveQuestion } from "../agent/question";
+import { readThresholdQuestion, resolveQuestion, type Unanswered } from "../agent/question";
 import { preRoute } from "../agent/route";
-import type { DesignAgent, QuestionWire } from "../agent/types";
+import type { DesignAgent, DirectionQuestion, QuestionWire } from "../agent/types";
 import type { Intent } from "./edits";
 import {
   canRedo,
@@ -130,7 +131,11 @@ export class WorkspaceStore {
   /** The design agent, or null: without one, requests are routed exactly as before Phase 6. */
   private agent: AgentBinding | null = null;
   /** The last question the agent read, so choosing among pieces does not ask the model again. */
-  private question: { text: string; wire: QuestionWire } | null = null;
+  private question:
+    | { text: string; wire: QuestionWire; directions?: undefined }
+    /** Phase 9: a question about directions on screen, by their numbers. */
+    | { text: string; wire: DirectionQuestion; directions: readonly number[] }
+    | null = null;
 
   setAgent(binding: AgentBinding | null) {
     this.agent = binding;
@@ -458,12 +463,16 @@ export class WorkspaceStore {
     const route = preRoute(text);
     if (route.to === "session") return this.runDesign(text, route.request, signal);
     if (route.to === "command") return this.runCommand(text, signal, () => this.askAgent(binding, text, false, true, signal));
-    return this.askAgent(binding, text, route.rulesBrief, false, signal);
+    return this.askAgent(binding, text, route.rulesBrief, false, signal, route.onScreen === true);
   }
 
-  private async askAgent(binding: AgentBinding, text: string, rulesBrief: boolean, afterCommand: boolean, signal: AbortSignal): Promise<boolean> {
+  /** `onScreen`: the words are about the directions on screen, so a failure is never answered about the room instead. */
+  private async askAgent(binding: AgentBinding, text: string, rulesBrief: boolean, afterCommand: boolean, signal: AbortSignal, onScreen = false): Promise<boolean> {
     // Choosing among pieces re-runs the same question: answer it again from what was read.
-    if (this.question?.text === text) return this.answerQuestion(binding, text, this.question.wire);
+    if (this.question?.text === text) {
+      const asked = this.question;
+      return asked.directions ? this.measureDirections(binding, text, asked.wire, asked.directions) : this.answerQuestion(binding, text, asked.wire);
+    }
     this.set({ command: { ...IDLE, pending: true, text }, limitation: null, receipt: null });
     const brief = roomBrief(this.state.doc.scene, binding.evidence, this.state.design?.proposals.map((p) => p.title) ?? []);
     const result = await binding.agent.read({ text, brief }, signal);
@@ -475,7 +484,7 @@ export class WorkspaceStore {
       }
       const why = AGENT_MESSAGES.failure[result.failure];
       // A stated threshold is a measurement, never a design count ("80" is not a number of designs).
-      const threshold = readThresholdQuestion(text);
+      const threshold = onScreen ? null : readThresholdQuestion(text);
       if (threshold) return this.answerQuestion(binding, text, threshold, `${why} ${AGENT_MESSAGES.readByMeasureRules} `);
       if (rulesBrief) {
         const consumed = await this.runDesign(text, { kind: "brief" }, signal);
@@ -490,14 +499,30 @@ export class WorkspaceStore {
     switch (reply.route) {
       case "design": {
         const outcome = fromIntent(text, reply.design, this.state.doc.scene);
-        if (outcome.outcome === "designs") {
+        if (outcome.outcome !== "designs") {
+          this.note(outcome.message, "plain", outcome.outcome === "none" ? "no-change" : "not-understood", text);
+          return false;
+        }
+        if (!reply.checks) {
           this.proposeDesigns(outcome.session);
           return true;
         }
-        this.note(outcome.message, "plain", outcome.outcome === "none" ? "no-change" : "not-understood", text);
-        return false;
+        // Phase 9: measured on each new direction, and carried beside the proposals — never in them.
+        const checked = checkDirections(outcome.session.proposals, reply.checks, {
+          room: this.state.doc.scene,
+          shown: this.state.scene,
+          evidence: binding.evidence,
+          selectionId: this.state.selection,
+        });
+        this.proposeDesigns({ ...outcome.session, checks: checked.checks });
+        this.note(checked.note, "plain", "answer", text);
+        return true;
       }
       case "question":
+        if (reply.directions) {
+          this.question = { text, wire: reply.question, directions: reply.directions };
+          return this.measureDirections(binding, text, reply.question, reply.directions);
+        }
         this.question = { text, wire: reply.question };
         return this.answerQuestion(binding, text, reply.question);
       case "command":
@@ -526,6 +551,40 @@ export class WorkspaceStore {
       this.note(`${lead}${result.answer.text}`, "plain", "answer", text);
       return false;
     }
+    return this.unanswered(text, result);
+  }
+
+  /**
+   * A question about directions on screen (Phase 9): each laid over the
+   * document exactly as Preview lays it, and measured by Phase 5. Reads,
+   * never writes: the document, the history, the preview and the session
+   * are all left as they were.
+   */
+  private measureDirections(binding: AgentBinding, text: string, wire: DirectionQuestion, ordinals: readonly number[]): boolean {
+    const design = this.state.design;
+    if (!design) {
+      this.note(AGENT_MESSAGES.directions.none, "plain", "unsupported", text);
+      return false;
+    }
+    if (ordinals.some((n) => n > design.proposals.length)) {
+      this.note(AGENT_MESSAGES.directions.notThatMany(design.proposals.length), "plain", "unsupported", text);
+      return false;
+    }
+    const evaluation = evaluateDirections({
+      question: wire,
+      room: this.state.doc.scene,
+      shown: this.state.scene,
+      evidence: binding.evidence,
+      selectionId: this.state.selection,
+      directions: ordinals.map((ordinal) => ({ ordinal, proposal: design.proposals[ordinal - 1] })),
+    });
+    if (!evaluation.ok) return this.unanswered(text, evaluation.result);
+    this.note(directionsNote(evaluation, this.state.doc.scene), "plain", "answer", text);
+    return false;
+  }
+
+  /** A question the engine could not put: which piece, when a name fits several, or why not. */
+  private unanswered(text: string, result: Unanswered): boolean {
     if (result.kind === "clarify") {
       this.note(result.message, "select", "ambiguous", text, result.options);
       return false;
