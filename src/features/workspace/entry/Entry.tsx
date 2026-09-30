@@ -251,7 +251,10 @@ export function Entry() {
               event.preventDefault();
               setOver(false);
               const file = event.dataTransfer.files[0];
-              if (file) void take(file);
+              if (file) {
+                job.reset();
+                void take(file);
+              }
             }}
           >
             <input
@@ -260,7 +263,10 @@ export function Entry() {
               accept={ACCEPT_ATTRIBUTE}
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                if (file) void take(file);
+                if (file) {
+                  job.reset();
+                  void take(file);
+                }
               }}
             />
             <span className={styles.dropMark} aria-hidden="true">
