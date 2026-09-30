@@ -420,7 +420,12 @@ export function resolveIntent(intent: SceneIntent, scene: Scene, selectionId: Id
       const found = pieces(resolve(intent.target));
       if (!("objects" in found)) return found;
       const object = found.objects[0];
-      const request: ReplacementRequest = { kind: "replace-object", targetObjectId: object.id, targetLabel: object.label, requestedForm: intent.form, requestedAttributes: intent.attributes };
+      // Another kind of piece ("turn this armchair into a round sofa") is a new piece, not another
+      // form of this one: never already so, and never read against this piece's own forms.
+      const other = intent.piece && !intent.piece.categories.includes(object.category) ? intent.piece : null;
+      const requestedForm = other && !` ${intent.form.toLowerCase()} `.includes(` ${other.words} `) ? `${intent.form} ${other.words}` : intent.form;
+      const request: ReplacementRequest = { kind: "replace-object", targetObjectId: object.id, targetLabel: object.label, requestedForm, requestedAttributes: intent.attributes };
+      if (other) return unavailable(MESSAGES.replacementUnavailable, request);
       if (alreadyIs(object, request)) return { ok: false, outcome: "unavailable", message: MESSAGES.nothingChanges, already: true };
       if (!fulfil(object, request)) return unavailable(MESSAGES.replacementUnavailable, request);
       return done({ type: "REPLACE_OBJECT", target: { kind: "object", id: object.id }, parameters: { form: intent.form, attributes: intent.attributes } });

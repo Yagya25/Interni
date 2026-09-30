@@ -88,7 +88,12 @@ export function fulfil(
   };
 }
 
-/** Whether the piece already has the form a request names. */
+/**
+ * Whether the piece already has the form a request names. A request that
+ * names no form this kind of piece has is never already true of it, even
+ * when the piece has no form of its own.
+ */
 export function alreadyIs(object: SceneObject, request: ReplacementRequest) {
-  return formFor(object, request)?.form === object.form;
+  const entry = formFor(object, request);
+  return entry !== undefined && entry.form === object.form;
 }

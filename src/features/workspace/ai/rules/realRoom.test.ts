@@ -320,6 +320,69 @@ describe("the provider boundary", () => {
   });
 });
 
+describe("making a reconstructed piece into another kind of piece", () => {
+  const REPLACEMENT_UNAVAILABLE = "I can understand the replacement request, but this furniture asset isn’t available yet.";
+  const NOTHING_CHANGES = "That’s already the case, so there’s nothing to change.";
+
+  it("reads “turn this into a round sofa” on Armchair 1 as a change, never as nothing to change", async () => {
+    // A reconstructed armchair has no form of its own, and no builder draws armchair forms.
+    expect(piece(ROOM, "armchair-0")).toMatchObject({ label: "Armchair 1", category: "armchair" });
+    expect(piece(ROOM, "armchair-0").form).toBeUndefined();
+    const result = await ask(ROOM, "Turn this into a round sofa", "armchair-0");
+    expect(result).toMatchObject({
+      outcome: "unavailable",
+      message: REPLACEMENT_UNAVAILABLE,
+      command: "Turn this into a round sofa",
+      request: { kind: "replace-object", targetObjectId: "armchair-0", targetLabel: "Armchair 1", requestedForm: "round sofa", requestedAttributes: [] },
+    });
+    expect(result).not.toHaveProperty("already");
+    expect(result).not.toMatchObject({ message: NOTHING_CHANGES });
+    // Nor is a form this kind of piece has no builder for “already” true of it.
+    expect(await ask(ROOM, "make this round", "armchair-0")).toMatchObject({ outcome: "unavailable", message: REPLACEMENT_UNAVAILABLE, request: { requestedForm: "round" } });
+  });
+
+  it("reaches the workspace as an understood replacement, not a “No change” note, and leaves the room as it was", async () => {
+    const store = new WorkspaceStore(ROOM, "download.png", interpreter, ROOM.materials);
+    store.select("armchair-0");
+    expect(await store.run("Turn this into a round sofa", signal())).toBe(true);
+    expect(store.getState().command).toMatchObject({ kind: null, note: null, pending: false });
+    expect(store.getState().limitation).toEqual({
+      command: "Turn this into a round sofa",
+      message: REPLACEMENT_UNAVAILABLE,
+      request: { kind: "replace-object", targetObjectId: "armchair-0", targetLabel: "Armchair 1", requestedForm: "round sofa", requestedAttributes: [] },
+    });
+    expect(store.getState().proposal).toBeNull();
+    expect(store.getState().doc.scene).toBe(ROOM);
+  });
+
+  it("still makes the sofa round, and then says it already is", async () => {
+    const round = apply(ROOM, await ask(ROOM, "Turn this into a round sofa", "sofa-0"));
+    expect(piece(round, "sofa-0").form).toBe("curved");
+    expect(await ask(round, "Turn this into a round sofa", "sofa-0")).toMatchObject({ outcome: "unavailable", message: NOTHING_CHANGES, already: true });
+    const store = new WorkspaceStore(round, "download.png", createRoomInterpreter(round), round.materials);
+    store.select("sofa-0");
+    expect(await store.run("Turn this into a round sofa", signal())).toBe(false);
+    expect(store.getState().command).toMatchObject({ kind: "no-change", note: NOTHING_CHANGES });
+    expect(store.getState().limitation).toBeNull();
+  });
+
+  it("asks which armchair when the name fits two, and which piece when nothing is selected", async () => {
+    const which = await ask(ROOM, "Turn the armchair into a round sofa");
+    expect(which).toMatchObject({ outcome: "clarify", message: "I found 2 armchairs. Which one do you mean?", clarification: { reason: "ambiguous" } });
+    const options = which.outcome === "clarify" && which.clarification.reason === "ambiguous" ? which.clarification.options : [];
+    expect(options.map((o) => o.id)).toEqual(["armchair-0", "armchair-1"]);
+    expect(await ask(ROOM, "Turn this into a round sofa")).toMatchObject({ outcome: "clarify", clarification: { reason: "no-selection" } });
+
+    // Choosing one selects it and asks again: the same words now mean that armchair.
+    const store = new WorkspaceStore(ROOM, "download.png", interpreter, ROOM.materials);
+    expect(await store.run("Turn the armchair into a round sofa", signal())).toBe(false);
+    expect(store.getState().command).toMatchObject({ kind: "ambiguous", options: [{ id: "armchair-0" }, { id: "armchair-1" }] });
+    store.select("armchair-1");
+    expect(await store.run("Turn the armchair into a round sofa", signal())).toBe(true);
+    expect(store.getState().limitation).toMatchObject({ request: { targetObjectId: "armchair-1", targetLabel: "Armchair 2", requestedForm: "round sofa" } });
+  });
+});
+
 describe("the workspace applying a command", () => {
   it("previews, applies as one history step, and undoes the whole command in one", async () => {
     const store = new WorkspaceStore(ROOM, "download.png", interpreter, ROOM.materials);

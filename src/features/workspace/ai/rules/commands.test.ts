@@ -258,6 +258,45 @@ describe("materials and light", () => {
   });
 });
 
+describe("making a piece into another kind of piece", () => {
+  it("keeps the kind of piece asked for, and reads a same-kind form exactly as before", () => {
+    expect(read("Turn this into a round sofa")).toEqual({ type: "replace_object", target: { kind: "selection" }, form: "round", attributes: [], piece: { words: "sofa", categories: ["sofa"] } });
+    expect(read("Swap this for a curved couch")).toMatchObject({ type: "replace_object", form: "curved", piece: { words: "couch", categories: ["sofa"] } });
+    expect(read("Turn this into a round table")).toMatchObject({ piece: { words: "table", categories: ["coffee-table", "side-table", "dining-table"] } });
+    // Nothing named but a form: no piece, as before.
+    expect(read("Replace the sofa with an L-shaped one")).toEqual({ type: "replace_object", target: expect.objectContaining({ categories: ["sofa"] }), form: "L-shaped", attributes: [] });
+    expect(read("make this round")).toEqual({ type: "replace_object", target: { kind: "selection" }, form: "round", attributes: [] });
+    // Which rule reads the words is unchanged: a colour with no form is still a recolour.
+    expect(read("turn this into a green sofa")).toMatchObject({ type: "change_material", change: { kind: "colour", name: "green" } });
+  });
+
+  it("holds the kind of piece asked for to the schema at the provider boundary", () => {
+    const good = read("Turn this into a round sofa") as SceneIntent;
+    expect(validateIntent(JSON.parse(JSON.stringify(good)), categories)).toEqual({ ok: true, intent: good });
+    expect(validateIntent({ ...good, piece: { words: "spaceship", categories: ["spaceship"] } }, categories)).toMatchObject({ ok: false, reason: expect.stringContaining("piece.categories") });
+    expect(validateIntent({ ...good, piece: { words: "sofa", categories: [] } }, categories)).toMatchObject({ ok: false, reason: expect.stringContaining("piece.categories") });
+    expect(validateIntent({ ...good, piece: "sofa" }, categories)).toMatchObject({ ok: false, reason: expect.stringContaining("piece") });
+  });
+
+  it("never answers a request for another kind of piece with this piece’s own forms", () => {
+    // The side table is already round: a round sofa is still a different piece, not “already the case”.
+    const sofa = run(demo.scene, "Turn this into a round sofa", "side-table");
+    expect(sofa).toMatchObject({ outcome: "unavailable", message: "I can understand the replacement request, but this furniture asset isn’t available yet.", request: { targetObjectId: "side-table", requestedForm: "round sofa" } });
+    expect(sofa).not.toHaveProperty("already");
+    // The coffee table is not redrawn as a round coffee table when a sofa was asked for.
+    expect(run(demo.scene, "Turn this into a round sofa", "coffee-table")).toMatchObject({ outcome: "unavailable", request: { targetObjectId: "coffee-table", requestedForm: "round sofa" } });
+    expect(run(demo.scene, "Turn this into a round sofa", "armchair")).toMatchObject({ outcome: "unavailable", request: { targetLabel: "Armchair", requestedForm: "round sofa" } });
+    // A form named with the piece's own kind is read against its forms, as before.
+    expect(run(demo.scene, "Turn this into a round table", "coffee-table")).toMatchObject({ outcome: "changes", interpretation: { summary: "Coffee table, as a round drum coffee table." } });
+    expect(run(demo.scene, "Turn this into a round sofa", "sofa")).toMatchObject({ outcome: "changes", interpretation: { summary: "Sofa, as a curved sofa." } });
+  });
+
+  it("still says so when what is asked is already true of the piece", () => {
+    expect(run(demo.scene, "Turn this into a round table", "side-table")).toEqual({ outcome: "unavailable", message: "That’s already the case, so there’s nothing to change.", command: "Turn this into a round table", intent: read("Turn this into a round table"), already: true });
+    expect(run(demo.scene, "make the side table round")).toMatchObject({ outcome: "unavailable", already: true });
+  });
+});
+
 describe("determinism and history", () => {
   it("compiles the same command on the same scene to the same operations", () => {
     for (const text of ["Move the sofa closer to the window", "Rotate the sofa 20 degrees", "Make the sofa slightly larger", "Make the room warmer", "Move the TV above the console"]) {

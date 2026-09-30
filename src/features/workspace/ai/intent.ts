@@ -126,6 +126,12 @@ export interface ReplaceIntent {
   /** The form asked for, as the person put it: "curved", "L-shaped". */
   form: string;
   attributes: readonly string[];
+  /**
+   * The kind of piece asked for, when the words name one: "sofa" in "turn
+   * this into a round sofa", with every category the name can mean. A piece
+   * of another kind is a different piece, not another form of this one.
+   */
+  piece?: { words: string; categories: readonly ObjectCategory[] };
 }
 
 export interface ResetIntent {
@@ -267,7 +273,16 @@ function intent(value: unknown, categories: readonly string[]): SceneIntent {
       return { type, target: entity(v.target, "target", categories), on: bool(v.on, "on") };
     case "replace_object": {
       const attributes = list(v.attributes, "attributes").map((a, i) => text(a, `attributes[${i}]`));
-      return { type, target: entity(v.target, "target", categories), form: text(v.form, "form"), attributes };
+      const piece = v.piece == null ? null : record(v.piece, "piece");
+      const kinds = piece ? list(piece.categories, "piece.categories").map((c, i) => oneOf(c, categories, `piece.categories[${i}]`) as ObjectCategory) : [];
+      if (piece && kinds.length === 0) throw new Error("piece.categories must name at least one category");
+      return {
+        type,
+        target: entity(v.target, "target", categories),
+        form: text(v.form, "form"),
+        attributes,
+        ...(piece && { piece: { words: text(piece.words, "piece.words"), categories: kinds } }),
+      };
     }
     case "reset_room":
       return { type };

@@ -111,7 +111,10 @@ export function read(input: string): SceneIntent | null {
     const wanted = connector ? connector[1] : text;
     const attributes = [...colourNames.filter((c) => has(wanted, c)), ...MATERIAL_WORDS.filter((m) => has(wanted, m))];
     const form = asWritten(forms.length > 0 ? forms.join(" ") : describeRequest(wanted, attributes));
-    return { type: "replace_object", target: entityOf(strip(subject, [...forms, "replace", "change", "convert", "transform", "turn", "make"])), form, attributes };
+    // The kind of piece asked for, when what is wanted names one: "sofa" in "…into a round sofa".
+    const asked = connector ? entityOf(wanted) : null;
+    const piece = asked?.kind === "object" && (asked.categories.length > 0 || asked.aliasOf.length > 0) ? { words: asked.words, categories: [...asked.categories, ...asked.aliasOf] } : null;
+    return { type: "replace_object", target: entityOf(strip(subject, [...forms, "replace", "change", "convert", "transform", "turn", "make"])), form, attributes, ...(piece && { piece }) };
   }
 
   // Removing -----------------------------------------------------------------
