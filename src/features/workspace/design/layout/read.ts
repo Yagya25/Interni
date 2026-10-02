@@ -65,7 +65,13 @@ const FILLER = /^(?:a|an|the|my|this|more|less|much|very|really|slightly|bit|lit
 /** Layout words already read by `PHRASES`, which a qualifier may stand in front of. */
 const LAYOUT_WORD = /^(?:conversation|conversational|social|sociable|tv|television|screen|media|open|opener|symmetrical|symmetric|balanced|compact|intimate|spacious)$/;
 
-const PRESERVE = /\b(?:keep|leave) (?:the |my |all the )?(?:furniture|layout|arrangement|pieces)(?: where (?:it is|they are)| as (?:it is|they are)| in place| alone)?\b|\b(?:dont|do not|without) (?:move|moving|rearrang\w*) (?:the |any )?(?:furniture|pieces|anything)\b/;
+/**
+ * "Keep the furniture where it is", "keep the existing layout", "leave the
+ * layout as is": the arrangement there now is kept, and none is asked for.
+ * "Keep this layout" and "keep the second layout" point at one on screen and
+ * are left to the design reader as an apply.
+ */
+const PRESERVE = /\b(?:keep|leave) (?:the |my |all the )?(?:existing |current |same )?(?:furniture|layout|arrangement|pieces)(?: where (?:it is|they are)| as (?:it is|they are)| as is| in place| alone)?\b|\b(?:dont|do not|without) (?:move|moving|rearrang\w*) (?:the |any )?(?:furniture|pieces|anything)\b/;
 
 const STRONG = /\b(much|very|far|really|way|a lot|totally|completely)\b/;
 const SLIGHT = /\b(slightly|a bit|a little|a touch|a tad|somewhat|subtly)\b/;

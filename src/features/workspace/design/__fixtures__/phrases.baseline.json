@@ -1,0 +1,2502 @@
+[
+  {
+    "text": "Give me three furniture layouts",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 3,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-tv-focused-facing",
+            "title": "Around the television",
+            "operations": 2,
+            "moves": 2
+          },
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 2,
+            "moves": 2
+          },
+          {
+            "id": "layout-open-open",
+            "title": "Open floor",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "7f00a510b8d85d7169ce52615b3b88f001e5e3212cd2298b615804fc0f690877"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 3,
+            "moves": 3
+          },
+          {
+            "id": "layout-open-open",
+            "title": "Open floor",
+            "operations": 2,
+            "moves": 2
+          },
+          {
+            "id": "layout-conversation-close",
+            "title": "Close conversation",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "4349827d3f066addeb1bc0b7c8e93d98a618ff960ef95acaa782b0cd28f3f851"
+      }
+    }
+  },
+  {
+    "text": "Make the seating more social",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": 0.65,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "c26686cfac05e96b64869c3e4d81a8359cd65cd25b0aa15deda064a999cfa33b"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 3,
+            "moves": 3
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d912fbc9d7336d6d45c655e977b4de2ef5c143d54b937ed651e7426b61f6a393"
+      }
+    }
+  },
+  {
+    "text": "Arrange the room around the TV",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [
+          "TV_FOCUSED"
+        ],
+        "social": null,
+        "tvFocus": 0.65,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-tv-focused-facing",
+            "title": "Around the television",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "ab145dc82dce0ea5f2715bacb019c61b4d5a17cc8b7eba44438ff063f22a967a"
+      },
+      "demonstration": {
+        "proposals": [],
+        "rejected": [
+          "layout-tv-focused"
+        ],
+        "reason": "I couldn’t rearrange this room that way — this room has no television or screen to arrange it around.",
+        "sha256": "3ca48971de8f31f0119c8a98193e67566b1da40ea7eb6456d4fd94b9d9e36967"
+      }
+    }
+  },
+  {
+    "text": "Make the room more open",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [
+          "OPEN"
+        ],
+        "social": null,
+        "tvFocus": null,
+        "openness": 0.65,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-open-open",
+            "title": "Open floor",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "5d699ed715c290414ee46d92abb497f2116cf9034419ed6ac964de3a69809eec"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-open-open",
+            "title": "Open floor",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d1d47e552c8eebaafacf6db9ca66299a2831b899dec284e814f6d20e3d5dcf8f"
+      }
+    }
+  },
+  {
+    "text": "Give me 3 modern designs",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "MODERN_WARM"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 3,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          },
+          {
+            "id": "modern-warm-neutral",
+            "title": "Modern Neutral",
+            "operations": 30,
+            "moves": 0
+          },
+          {
+            "id": "modern-warm-dark-accent",
+            "title": "Modern Dark Accent",
+            "operations": 33,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "c52ca5e9786dd70dd34baab8bf42ac6ae42ad3b2d31946ca2afa84f24203f015"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          },
+          {
+            "id": "modern-warm-neutral",
+            "title": "Modern Neutral",
+            "operations": 25,
+            "moves": 0
+          },
+          {
+            "id": "modern-warm-dark-accent",
+            "title": "Modern Dark Accent",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "f3f4dc8de07a161da9b6aff47239d37f00bd17a0390cabd5d2feb1d1dcce8415"
+      }
+    }
+  },
+  {
+    "text": "Show me a Scandinavian version",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "SCANDINAVIAN"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 31,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "5ad8908d70d9165daf9dbc57b51b5f0abe406a2df556a116a55e4fc4d8c4d9fd"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "53364b836d41d47154edf607e5db92d8b39beb1c19ab974d1fb88cc2e841507f"
+      }
+    }
+  },
+  {
+    "text": "Make this room feel warmer and more luxurious",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "CLASSIC_ELEGANT"
+      ],
+      "atmosphere": "warmer, luxurious",
+      "warmth": 0.65,
+      "brightness": null,
+      "contrast": null,
+      "luxury": 0.65,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "classic-elegant-ivory",
+            "title": "Classic Ivory",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "f6bdd0d0de8856a4b12e6ee825ae079096a0891c22214485f2a27807e1ce18a5"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "classic-elegant-ivory",
+            "title": "Classic Ivory",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "9be560d95e1d9533f52e308ca508edb24d9fa9d10f624c3991b489228cc2357d"
+      }
+    }
+  },
+  {
+    "text": "A minimal neutral version",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "MINIMAL_NEUTRAL"
+      ],
+      "atmosphere": "minimal",
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": 0.65,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "minimal-neutral-pale",
+            "title": "Minimal Pale",
+            "operations": 29,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "e47389162adb5beb765b3384b59ebdb404b09a840ebc249a9d29c315af9fd460"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "minimal-neutral-pale",
+            "title": "Minimal Pale",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "89cc1f77cf37305c49fa52ea8e3516258c1cb9775fa446b86fa6d5b9b449601b"
+      }
+    }
+  },
+  {
+    "text": "Make this room darker and more contemporary",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "DARK_CONTEMPORARY"
+      ],
+      "atmosphere": "darker",
+      "warmth": null,
+      "brightness": -0.65,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "dark-contemporary-charcoal",
+            "title": "Dark Charcoal",
+            "operations": 31,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "495df3c360e9da42bfb70084fa79db551f8836318f3f2415cf7a02b0dd55626b"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "dark-contemporary-charcoal",
+            "title": "Dark Charcoal",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "a223fea5e24926651b8c3e4d2d3b4e4c41916ca19b0a42995a920f4b8af0663e"
+      }
+    }
+  },
+  {
+    "text": "Give me a cozy design",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "COZY"
+      ],
+      "atmosphere": "cozy",
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": 0.65,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "cozy-amber",
+            "title": "Cozy Amber",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "21d63643c0bf5ca3af5ee2a079704221c979510fdd466d5e20fa057a94a6c4b6"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "cozy-amber",
+            "title": "Cozy Amber",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "045a02adb00ad060cd9e7a45d74074b93ecf54ee3304ca06221696cb6c8520a6"
+      }
+    }
+  },
+  {
+    "text": "Apply the second design",
+    "request": {
+      "kind": "session",
+      "action": "apply",
+      "ordinal": 2
+    },
+    "route": {
+      "to": "session",
+      "request": {
+        "kind": "session",
+        "action": "apply",
+        "ordinal": 2
+      }
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "c970cb8553e953d8193fe2347448f700880746887fede6f6e2d2e369b51a619c"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "8d0cbb16113d2872acfee53a88739f00515d34a5ee88bf25820781cf785427e2"
+      }
+    }
+  },
+  {
+    "text": "Give me a Scandinavian design",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "SCANDINAVIAN"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 31,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "5ad8908d70d9165daf9dbc57b51b5f0abe406a2df556a116a55e4fc4d8c4d9fd"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "53364b836d41d47154edf607e5db92d8b39beb1c19ab974d1fb88cc2e841507f"
+      }
+    }
+  },
+  {
+    "text": "a much cozier design",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": "cozier",
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": 1,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "cozy-amber",
+            "title": "Cozy Amber",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "8162303c616edff246067a323b338425df41e9f2dc26098f304c4386edae280c"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "cozy-amber",
+            "title": "Cozy Amber",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "6ad973ae72fc73d450738828028a6ab4575835a6e0fe57f7ccab1e429b1f07ca"
+      }
+    }
+  },
+  {
+    "text": "a slightly warmer design",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": "warmer",
+      "warmth": 0.35,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "cozy-amber",
+            "title": "Cozy Amber",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "6bf91be406c207d9a613712e1cae3963441fce10a54e343fce133f06a30c6a83"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "cozy-amber",
+            "title": "Cozy Amber",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "eff47cdf6bce053b0cbf8ee417120b7ee7ca179d8a19fe70cae49232a3404379"
+      }
+    }
+  },
+  {
+    "text": "a less warm design",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": "warm",
+      "warmth": -0.65,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "dark-contemporary-charcoal",
+            "title": "Dark Charcoal",
+            "operations": 31,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "bf881cd43ac8301e4003359f55319ad6ab6e44d4fa8f1db856b53af7fa30a4ed"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "dark-contemporary-charcoal",
+            "title": "Dark Charcoal",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "b8e1d27e4ac85ef9b255af6b5ffab066c2182133e90eb0ba50a88b7b4615fdea"
+      }
+    }
+  },
+  {
+    "text": "give me a couple of design options",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 2,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          },
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 31,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "861f300893d755eca6af0d715b8cd9b5ce36d6990c6375b1736784ac250c34f3"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          },
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "1cdf6f10a1cb22f430af68ea478678709966a6be92402057a401fb1093307f87"
+      }
+    }
+  },
+  {
+    "text": "some design ideas",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 3,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          },
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 31,
+            "moves": 0
+          },
+          {
+            "id": "minimal-neutral-pale",
+            "title": "Minimal Pale",
+            "operations": 29,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "3c1342801a166acbf541154eea45331fa32b8c816d97d8be87bcde2454565e11"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          },
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 25,
+            "moves": 0
+          },
+          {
+            "id": "minimal-neutral-pale",
+            "title": "Minimal Pale",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d3f5b03473d7bb136d243cb50127b52922404a17281adb131a4ba9dbbc7564eb"
+      }
+    }
+  },
+  {
+    "text": "Give the room a modern theme",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "MODERN_WARM"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "c970cb8553e953d8193fe2347448f700880746887fede6f6e2d2e369b51a619c"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "8d0cbb16113d2872acfee53a88739f00515d34a5ee88bf25820781cf785427e2"
+      }
+    }
+  },
+  {
+    "text": "Create a cozy conversation layout.",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [
+          "CONVERSATION"
+        ],
+        "social": 0.65,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": 0.65,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-conversation-close",
+            "title": "Close conversation",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "a8a9955610abb6e84f6f9f7cc9a6214c5b84b07973122994f9e02d2131327cfb"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-conversation-close",
+            "title": "Close conversation",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "9ff7e2e7695b741be497fd532256cbbd5782eecf0ec36c404d3ca43c1482fb06"
+      }
+    }
+  },
+  {
+    "text": "Make the room feel less cramped.",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": 0.65,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-open-open",
+            "title": "Open floor",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "5d699ed715c290414ee46d92abb497f2116cf9034419ed6ac964de3a69809eec"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-open-open",
+            "title": "Open floor",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d1d47e552c8eebaafacf6db9ca66299a2831b899dec284e814f6d20e3d5dcf8f"
+      }
+    }
+  },
+  {
+    "text": "Give me a more minimal furniture arrangement.",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": 0.65,
+        "circulation": null,
+        "symmetry": 0.65,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-open-pared-back",
+            "title": "Pared back to the walls",
+            "operations": 3,
+            "moves": 3
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "9300b643de9f192d26370e920b6f66b7b30f4d17f1dd6fc42cd2975086fe1e11"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-open-pared-back",
+            "title": "Pared back to the walls",
+            "operations": 6,
+            "moves": 6
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "b2fb9c071fc62f31b33c6b0bab090f2d099bf20b1c5e2e2e703d2a564fb8f150"
+      }
+    }
+  },
+  {
+    "text": "a slightly less social layout",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": -0.35,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-tv-focused-facing",
+            "title": "Around the television",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "ab145dc82dce0ea5f2715bacb019c61b4d5a17cc8b7eba44438ff063f22a967a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 3,
+            "moves": 3
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d912fbc9d7336d6d45c655e977b4de2ef5c143d54b937ed651e7426b61f6a393"
+      }
+    }
+  },
+  {
+    "text": "give me a symmetrical layout with the chairs spread out",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": 0.65,
+        "compactness": null,
+        "separation": 0.65,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-tv-focused-centred",
+            "title": "Centred on the television",
+            "operations": 6,
+            "moves": 6
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "2b8b8d05c5efdcadf87df783c9fc0673f296873f4d1ffaa00552c798d19516ac"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-open-pared-back",
+            "title": "Pared back to the walls",
+            "operations": 4,
+            "moves": 4
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "b9dbf589839ebdcbcfdc433cba0f43379395f07be65506f1c3b9e21add5690b7"
+      }
+    }
+  },
+  {
+    "text": "Give me a modern cozy design with a conversation layout",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "COZY",
+        "MODERN_WARM"
+      ],
+      "atmosphere": "cozy",
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": 0.65,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": {
+        "styles": [
+          "CONVERSATION"
+        ],
+        "social": 0.65,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "cozy-amber+layout-conversation-around",
+            "title": "Conversation around the coffee table · Cozy Amber",
+            "operations": 34,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "05ae0bdbbe24dc403674a582937eae62524ad2dffeb4e349b108deb72426b943"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "cozy-amber+layout-conversation-around",
+            "title": "Conversation around the coffee table · Cozy Amber",
+            "operations": 28,
+            "moves": 3
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "20f25b45b2bd96d62ba40941526c7a61c080ac56a1582c650b4d3c29c6b39f8a"
+      }
+    }
+  },
+  {
+    "text": "make the room feel less cramped and warmer",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": "warmer",
+      "warmth": 0.65,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": 0.65,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "cozy-amber+layout-open-open",
+            "title": "Open floor · Cozy Amber",
+            "operations": 34,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "83ea7144a86bb1adda3799a926eb8c957e6fae97b8733ffd6c9737abeff965a4"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "cozy-amber+layout-open-open",
+            "title": "Open floor · Cozy Amber",
+            "operations": 27,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "8080894a7ce6802798482c12726370bb8b5768b116f18f504be60fa2930857c4"
+      }
+    }
+  },
+  {
+    "text": "Rearrange my furniture so it's nicer for talking",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-tv-focused-facing",
+            "title": "Around the television",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "ab145dc82dce0ea5f2715bacb019c61b4d5a17cc8b7eba44438ff063f22a967a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 3,
+            "moves": 3
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d912fbc9d7336d6d45c655e977b4de2ef5c143d54b937ed651e7426b61f6a393"
+      }
+    }
+  },
+  {
+    "text": "Give me three layouts that keep at least 80 cm of circulation",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "invalid": "variantCount must be at most 3"
+    },
+    "built": null
+  },
+  {
+    "text": "a cozy design but keep the furniture where it is",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "COZY"
+      ],
+      "atmosphere": "cozy",
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": 0.65,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": true
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "cozy-amber",
+            "title": "Cozy Amber",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "ef178f6293aac4f92a0d44227929b0605a3132abeab594485d7d0368f8209d09"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "cozy-amber",
+            "title": "Cozy Amber",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "0c60d5bb2004f6d9acab4d054520a2934fda60990984ec3adfccc22677a00c90"
+      }
+    }
+  },
+  {
+    "text": "Give the room a modern theme and keep the furniture where it is",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "MODERN_WARM"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": true
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "11eb264cea68aaa97822153f992f109981b68d6f7ec8d4d1cd7cd937e4ba1f0a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "051a7b95dadd58e3d0c19a3218828e1d84c38d77df68d852d26116450b6f92e4"
+      }
+    }
+  },
+  {
+    "text": "Give the room a modern theme and leave the furniture where it is",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "MODERN_WARM"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": true
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "11eb264cea68aaa97822153f992f109981b68d6f7ec8d4d1cd7cd937e4ba1f0a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "051a7b95dadd58e3d0c19a3218828e1d84c38d77df68d852d26116450b6f92e4"
+      }
+    }
+  },
+  {
+    "text": "Give the room a modern theme and keep the layout as is",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "MODERN_WARM"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": true
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "11eb264cea68aaa97822153f992f109981b68d6f7ec8d4d1cd7cd937e4ba1f0a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "051a7b95dadd58e3d0c19a3218828e1d84c38d77df68d852d26116450b6f92e4"
+      }
+    }
+  },
+  {
+    "text": "Give the room a modern theme and leave the furniture as is",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "MODERN_WARM"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": true
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "11eb264cea68aaa97822153f992f109981b68d6f7ec8d4d1cd7cd937e4ba1f0a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "051a7b95dadd58e3d0c19a3218828e1d84c38d77df68d852d26116450b6f92e4"
+      }
+    }
+  },
+  {
+    "text": "Give me a Scandinavian design and don't move the furniture",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [
+        "SCANDINAVIAN"
+      ],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": true
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 31,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "4628af8fbad11dda75045cf51f299dd42e96063e234b24b23563c4fa1c0c8f61"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "5539aab9311f111af47fb44b3b1fa97a52e7a881e7b6b87f2739112bd7ed804b"
+      }
+    }
+  },
+  {
+    "text": "keep the layout",
+    "request": null,
+    "route": {
+      "to": "command"
+    },
+    "intent": null,
+    "built": null
+  },
+  {
+    "text": "keep this layout",
+    "request": {
+      "kind": "session",
+      "action": "apply",
+      "ordinal": null
+    },
+    "route": {
+      "to": "session",
+      "request": {
+        "kind": "session",
+        "action": "apply",
+        "ordinal": null
+      }
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-tv-focused-facing",
+            "title": "Around the television",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "ab145dc82dce0ea5f2715bacb019c61b4d5a17cc8b7eba44438ff063f22a967a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 3,
+            "moves": 3
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d912fbc9d7336d6d45c655e977b4de2ef5c143d54b937ed651e7426b61f6a393"
+      }
+    }
+  },
+  {
+    "text": "keep the second layout",
+    "request": {
+      "kind": "session",
+      "action": "apply",
+      "ordinal": 2
+    },
+    "route": {
+      "to": "session",
+      "request": {
+        "kind": "session",
+        "action": "apply",
+        "ordinal": 2
+      }
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-tv-focused-facing",
+            "title": "Around the television",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "ab145dc82dce0ea5f2715bacb019c61b4d5a17cc8b7eba44438ff063f22a967a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 3,
+            "moves": 3
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d912fbc9d7336d6d45c655e977b4de2ef5c143d54b937ed651e7426b61f6a393"
+      }
+    }
+  },
+  {
+    "text": "keep this design",
+    "request": {
+      "kind": "session",
+      "action": "apply",
+      "ordinal": null
+    },
+    "route": {
+      "to": "session",
+      "request": {
+        "kind": "session",
+        "action": "apply",
+        "ordinal": null
+      }
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "c970cb8553e953d8193fe2347448f700880746887fede6f6e2d2e369b51a619c"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "8d0cbb16113d2872acfee53a88739f00515d34a5ee88bf25820781cf785427e2"
+      }
+    }
+  },
+  {
+    "text": "Make it feel like a Kyoto tea house but keep it bright",
+    "request": {
+      "kind": "session",
+      "action": "apply",
+      "ordinal": null
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": false
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": "bright",
+      "warmth": null,
+      "brightness": 0.65,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 31,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "ba9d6180ceb4d34ab1fb12355844063d39ae3fc4adc7c9bbb97dd549eb0241b9"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "521ddae7ab490bd0ffa584fc29ff8ce55bb80a5e1ff6c4e06d9da369767c1c64"
+      }
+    }
+  },
+  {
+    "text": "preview the third arrangement",
+    "request": {
+      "kind": "session",
+      "action": "preview",
+      "ordinal": 3
+    },
+    "route": {
+      "to": "session",
+      "request": {
+        "kind": "session",
+        "action": "preview",
+        "ordinal": 3
+      }
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 1,
+      "finishes": false,
+      "layout": {
+        "styles": [],
+        "social": null,
+        "tvFocus": null,
+        "openness": null,
+        "circulation": null,
+        "symmetry": null,
+        "compactness": null,
+        "separation": null,
+        "preserve": false
+      }
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "layout-tv-focused-facing",
+            "title": "Around the television",
+            "operations": 2,
+            "moves": 2
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "ab145dc82dce0ea5f2715bacb019c61b4d5a17cc8b7eba44438ff063f22a967a"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "layout-conversation-around",
+            "title": "Conversation around the coffee table",
+            "operations": 3,
+            "moves": 3
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d912fbc9d7336d6d45c655e977b4de2ef5c143d54b937ed651e7426b61f6a393"
+      }
+    }
+  },
+  {
+    "text": "apply design 3",
+    "request": {
+      "kind": "session",
+      "action": "apply",
+      "ordinal": 3
+    },
+    "route": {
+      "to": "session",
+      "request": {
+        "kind": "session",
+        "action": "apply",
+        "ordinal": 3
+      }
+    },
+    "intent": {
+      "version": "design-intent-0.2",
+      "styles": [],
+      "atmosphere": null,
+      "warmth": null,
+      "brightness": null,
+      "contrast": null,
+      "luxury": null,
+      "minimalism": null,
+      "coziness": null,
+      "variantCount": 3,
+      "finishes": true,
+      "layout": null
+    },
+    "built": {
+      "photograph": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 32,
+            "moves": 0
+          },
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 31,
+            "moves": 0
+          },
+          {
+            "id": "minimal-neutral-pale",
+            "title": "Minimal Pale",
+            "operations": 29,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "3c1342801a166acbf541154eea45331fa32b8c816d97d8be87bcde2454565e11"
+      },
+      "demonstration": {
+        "proposals": [
+          {
+            "id": "modern-warm-warm",
+            "title": "Modern Warm",
+            "operations": 25,
+            "moves": 0
+          },
+          {
+            "id": "scandinavian-light",
+            "title": "Scandinavian Light",
+            "operations": 25,
+            "moves": 0
+          },
+          {
+            "id": "minimal-neutral-pale",
+            "title": "Minimal Pale",
+            "operations": 25,
+            "moves": 0
+          }
+        ],
+        "rejected": [],
+        "reason": null,
+        "sha256": "d3f5b03473d7bb136d243cb50127b52922404a17281adb131a4ba9dbbc7564eb"
+      }
+    }
+  },
+  {
+    "text": "exit preview",
+    "request": {
+      "kind": "session",
+      "action": "dismiss",
+      "ordinal": null
+    },
+    "route": {
+      "to": "session",
+      "request": {
+        "kind": "session",
+        "action": "dismiss",
+        "ordinal": null
+      }
+    },
+    "intent": null,
+    "built": null
+  },
+  {
+    "text": "Is there at least 80 cm of circulation space?",
+    "request": {
+      "kind": "brief"
+    },
+    "route": {
+      "to": "agent",
+      "rulesBrief": true,
+      "question": true
+    },
+    "intent": {
+      "invalid": "variantCount must be at most 3"
+    },
+    "built": null
+  },
+  {
+    "text": "Move the sofa 30cm left",
+    "request": null,
+    "route": {
+      "to": "command"
+    },
+    "intent": null,
+    "built": null
+  },
+  {
+    "text": "make the room warmer",
+    "request": null,
+    "route": {
+      "to": "command"
+    },
+    "intent": null,
+    "built": null
+  },
+  {
+    "text": "Change the curtains to white",
+    "request": null,
+    "route": {
+      "to": "command"
+    },
+    "intent": null,
+    "built": null
+  },
+  {
+    "text": "Rotate the sofa 20 degrees",
+    "request": null,
+    "route": {
+      "to": "command"
+    },
+    "intent": null,
+    "built": null
+  },
+  {
+    "text": "remove the ottoman",
+    "request": null,
+    "route": {
+      "to": "command"
+    },
+    "intent": null,
+    "built": null
+  }
+]
